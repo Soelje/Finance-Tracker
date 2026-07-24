@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Oscar's Finances</title>
+<title>Finance Tracker</title>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.5.0/dist/chart.umd.js" integrity="sha384-iU8HYtnGQ8Cy4zl7gbNMOhsDTTKX02BTXptVP/vqAWIaTfM7isw76iyZCsjL2eVi" crossorigin="anonymous"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 <style>
@@ -34,11 +34,13 @@ header, .tabbar, #page-lon, #page-budget { max-width: 760px; margin-left: auto; 
 .invrow > .card { margin-bottom: 14px; }
 @media (max-width: 860px) { .invrow { grid-template-columns: 1fr; } }
 .serif { font-family: Georgia, "Times New Roman", serif; }
-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; }
+header { display: flex; justify-content: flex-end; align-items: center; margin-bottom: 14px; position: relative; }
 h1 { font-family: Georgia, serif; font-size: 19px; font-weight: 700; }
+header h1 { text-decoration: underline; font-style: italic; position: absolute; left: 50%; transform: translateX(-50%); white-space: nowrap; }
 .hbtns { display: flex; gap: 8px; }
 .pillbtn { border: 1px solid var(--line); background: var(--card); border-radius: 999px; padding: 6px 13px; font-size: 12px; cursor: pointer; color: var(--ink); box-shadow: var(--shadow); }
 .pillbtn:hover { filter: brightness(.97); }
+.pillbtn:disabled { opacity: .4; cursor: not-allowed; }
 .tabbar { display: flex; gap: 8px; margin-bottom: 18px; }
 .tabbtn { flex: 1; border: 1px solid var(--line); background: var(--card); border-radius: 10px; padding: 9px 0; font-size: 13px; font-weight: 650; cursor: pointer; color: var(--mut); box-shadow: var(--shadow); }
 .tabbtn.on { background: var(--green); border-color: var(--green); color: #fff; }
@@ -178,7 +180,7 @@ tr.lotsrow td { background: var(--bg); padding: 6px 12px 10px; border-top: none;
 <!-- login gate: shown until authenticated; the app (#app) stays hidden and inert until then -->
 <div id="authGate" class="hidden authwrap">
   <div class="card authcard">
-    <h1 class="serif" style="font-size:20px;margin-bottom:2px">Oscar's Finances</h1>
+    <h1 class="serif" style="font-size:20px;margin-bottom:2px">Finance Tracker</h1>
     <div class="muted" style="margin-bottom:16px">Sign in to sync your data across devices.</div>
     <label>Email</label>
     <input type="email" id="authEmail" placeholder="you@example.com" autocomplete="username">
@@ -194,7 +196,7 @@ tr.lotsrow td { background: var(--bg); padding: 6px 12px 10px; border-top: none;
 <div id="syncToast" class="hidden synctoast"></div>
 <div id="app" class="hidden">
 <header>
-  <h1>Oscar's Finances</h1>
+  <h1>Finance Tracker</h1>
   <div class="hbtns">
     <button class="pillbtn" id="btnTheme">🌙 Dark</button>
     <button class="pillbtn" id="btnSettings" title="Settings">⚙</button>
@@ -349,13 +351,13 @@ tr.lotsrow td { background: var(--bg); padding: 6px 12px 10px; border-top: none;
         <button type="submit" class="btn" id="btnHoldSubmit">+ Add position</button>
       </div>
     </form>
-    <div class="muted">Buying the same stock again in the same account adds a lot to the existing position.</div>
+    <div class="muted" style="margin-top:16px">Buying the same stock again in the same account adds a lot to the existing position.</div>
     <div class="muted" id="invStatus"></div>
   </div>
 
   <div class="card">
     <div class="lbl">Sector allocation</div>
-    <div class="piebox" id="pieBox" style="height:270px"><canvas id="pieChart"></canvas></div>
+    <div class="piebox" id="pieBox" style="height:270px;margin-top:14px"><canvas id="pieChart"></canvas></div>
   </div>
   </div><!-- /invrow -->
 
@@ -509,16 +511,6 @@ async function pushKey(k) {
   );
   if (error) throw error;
 }
-// push every synced key up as the initial cloud seed — used the first time a user signs in while
-// their cloud is still empty (e.g. an existing local user creating an account)
-async function seedCloudFromLocal() {
-  if (!currentUser) return;
-  const rows = Object.keys(SYNC_KEYS).map(k => ({
-    user_id: currentUser.id, key: SYNC_KEYS[k], value: syncValue(k), updated_at: new Date().toISOString()
-  }));
-  const { error } = await sb.from('user_data').upsert(rows, { onConflict: 'user_id,key' });
-  if (error) throw error;
-}
 // apply one cloud row into the matching in-memory variable and refresh its local cache
 function applyCloudValue(rowKey, value) {
   switch (rowKey) {
@@ -628,7 +620,7 @@ function fillAccSelect() {
 }
 // normalizes data from any older version of the tracker (runs at load and after import)
 function normalizeData() {
-  if (!settings.accNames || !Array.isArray(settings.accNames) || settings.accNames.length !== 5) {
+  if (!settings.accNames || !Array.isArray(settings.accNames) || settings.accNames.length === 0) {
     settings.accNames = [...DEFAULTS.accNames];
   }
   if (!settings.modulLen || settings.modulLen === 1.5) settings.modulLen = 1;
@@ -1364,7 +1356,7 @@ document.getElementById('btnAI').onclick = async () => {
       cash_accounts: cash.map(c => ({ name: c.name, dkk: c.amount })),
       portfolio_dkk: holdings.map(h => ({ name: h.name, value_dkk: Math.round((h.price || 0) * h.qty * (h.fx || 1)), sector: h.sector }))
     };
-    const prompt = 'You are a blunt, practical personal finance adviser for Oscar, 20, a student in Copenhagen with two part-time jobs, moving into his own apartment in under a month. From the JSON data, give 3-5 short, concrete observations and recommendations in English. Focus on: overspending, room for saving/investing, and readiness for fixed housing costs. Note his frikort (tax-free allowance) is nearly used up, so payouts will drop ~35% once it runs out. No preamble, just the points.';
+    const prompt = 'You are a blunt, practical personal finance adviser. From the JSON data (a month of income, recurring costs, expenses, cash and portfolio for a Danish part-time worker/student), give 3-5 short, concrete observations and recommendations in English. Focus on: overspending, room for saving/investing, and readiness for upcoming fixed costs. If frikort_left_dkk is low relative to typical payouts, note that payouts will drop roughly 35% (tax) once it runs out. No preamble, just the points.';
     const res = await window.cowork.askClaude(prompt, [JSON.stringify(data)]);
     out.textContent = typeof res === 'string' ? res : (res && (res.text || res.content)) || JSON.stringify(res);
   } catch (err) {
@@ -1648,7 +1640,7 @@ function renderInvest() {
   document.getElementById('invHero').innerHTML = `
     <div class="lbl">Total net worth</div>
     <div class="big">${fmt0(val + cashTotal)}</div>
-    <div class="sub">${fmt0(val)} invested${cost > 0 ? ' · ' + (gain >= 0 ? '+' : '−') + fmt0(Math.abs(gain)) + ' (' + (gain >= 0 ? '+' : '') + gainPct.toFixed(1) + '%) all time' : ''} · ${fmt0(cashTotal)} cash</div>
+    <div class="sub">${fmt0(val)} invested · ${fmt0(cashTotal)} cash</div>
     <div class="chips">${activeAccounts.map(a => `<span class="chip">${a} ${fmt0(accVal(a))}</span>`).join('')}${cashTotal > 0 ? `<span class="chip">💵 Cash ${fmt0(cashTotal)}</span>` : ''}</div>`;
 
   const upd = holdings.reduce((a, p) => Math.max(a, p.updated || 0), 0);
@@ -1895,12 +1887,15 @@ const FIELDS = [
 const TABS = [['showLon', 'Salary'], ['showBudget', 'Budget'], ['showInvest', 'Investment']];
 function renderSettings() {
   const g = document.getElementById('settingsGrid');
+  const sectionHead = t => `<div class="lbl" style="grid-column:1/-1;margin-bottom:2px">${t}</div>`;
+  const divider = 'grid-column:1/-1;border-top:1px solid var(--line);margin-top:18px;padding-top:16px';
   g.innerHTML =
-    `<div style="grid-column:1/-1"><label>Visible sections</label>
-      <div style="display:flex;gap:18px;flex-wrap:wrap;margin-top:4px">` +
+    sectionHead('Visible sections') +
+    `<div style="grid-column:1/-1;display:flex;gap:18px;flex-wrap:wrap;margin-top:2px;margin-bottom:4px">` +
     TABS.map(([k, l]) => `<label style="display:flex;align-items:center;gap:6px;font-weight:400;text-transform:none;letter-spacing:normal;font-size:13px;color:var(--ink)"><input type="checkbox" id="set_${k}" ${settings[k] !== false ? 'checked' : ''}>${l}</label>`).join('') +
-    `</div></div>` +
-    FIELDS.map(([k, l]) => `<div><label>${l}</label><input type="number" step="0.01" id="set_${k}" value="${settings[k]}"></div>`).join('') +
+    `</div>` +
+
+    `<div style="${divider}">` + sectionHead('Live prices') + `</div>` +
     `<div style="grid-column:1/-1"><label>FMP API key (optional — enables live prices when opened in a normal browser)</label><input type="text" id="set_fmpKey" placeholder="from your dashboard at financialmodelingprep.com" value="${settings.fmpKey || ''}"></div>` +
     `<div style="grid-column:1/-1"><label>Google Sheet link (optional — free live prices, no rate limit; used first, FMP is the fallback)</label>
       <div style="display:flex;gap:8px;align-items:center">
@@ -1910,9 +1905,21 @@ function renderSettings() {
       <div class="muted" style="margin-top:6px">Use the normal Share link (General access: Anyone with the link), not Publish to web — it gets converted automatically.</div>
       <div class="muted" id="sheetTestResult" style="margin-top:6px"></div>
     </div>` +
-    `<div style="grid-column:1/-1"><label>Investment account names</label><div class="settings-grid" style="margin-bottom:0">` +
-    settings.accNames.map((n, i) => `<div><input type="text" id="set_acc_${i}" value="${n}"></div>`).join('') +
-    `</div></div>`;
+
+    `<div style="${divider}">` + sectionHead('Salary settings') + `</div>` +
+    `<div style="grid-column:1/-1" class="settings-grid">` +
+    FIELDS.map(([k, l]) => `<div><label>${l}</label><input type="number" step="0.01" id="set_${k}" value="${settings[k]}"></div>`).join('') +
+    `</div>` +
+
+    `<div style="${divider}">` + sectionHead('Investment accounts') + `</div>` +
+    `<div style="grid-column:1/-1;display:flex;flex-direction:column;gap:8px;margin-top:2px">` +
+    settings.accNames.map((n, i) => `<div style="display:flex;gap:8px;align-items:center">
+        <input type="text" id="set_acc_${i}" value="${n}" style="flex:1">
+        <button type="button" class="pillbtn" data-remove-acc="${i}" style="font-size:12px;padding:6px 12px" ${settings.accNames.length <= 1 ? 'disabled title="At least one account is required"' : ''}>Remove</button>
+      </div>`).join('') +
+    `</div>
+    <div style="grid-column:1/-1;margin-top:4px"><button type="button" class="linkbtn" id="btnAddAcc" style="padding-left:0">+ Add account</button></div>`;
+
   FIELDS.forEach(([k]) => {
     document.getElementById('set_' + k).onchange = e => {
       settings[k] = parseFloat(e.target.value) || 0;
@@ -1968,12 +1975,35 @@ function renderSettings() {
       const oldName = settings.accNames[i];
       const newName = e.target.value.trim();
       if (!newName || newName === oldName) { e.target.value = oldName; return; }
+      if (settings.accNames.some((a, j) => j !== i && a === newName)) {
+        alert('You already have an account with that name.');
+        e.target.value = oldName;
+        return;
+      }
       holdings.forEach(p => { if (p.account === oldName) p.account = newName; });
       settings.accNames[i] = newName;
       saveSettings(); save(HO_KEY, holdings);
       fillAccSelect(); renderAll();
     };
   });
+  document.querySelectorAll('[data-remove-acc]').forEach(btn => {
+    btn.onclick = () => {
+      if (settings.accNames.length <= 1) return;
+      const i = parseInt(btn.getAttribute('data-remove-acc'), 10);
+      const name = settings.accNames[i];
+      const inUse = holdings.some(p => p.account === name);
+      if (inUse && !confirm('"' + name + '" still has positions in it. Remove it from the account list anyway? (Existing positions keep their account name — you just won\'t be able to pick it for new ones.)')) return;
+      settings.accNames.splice(i, 1);
+      saveSettings(); fillAccSelect(); renderAll(); renderSettings();
+    };
+  });
+  document.getElementById('btnAddAcc').onclick = () => {
+    const name = (prompt('New account name:') || '').trim();
+    if (!name) return;
+    if (settings.accNames.includes(name)) { alert('You already have an account with that name.'); return; }
+    settings.accNames.push(name);
+    saveSettings(); fillAccSelect(); renderAll(); renderSettings();
+  };
 }
 document.getElementById('btnSettings').onclick = () => { renderSettings(); document.getElementById('settingsOverlay').classList.remove('hidden'); };
 document.getElementById('btnClose').onclick = () => document.getElementById('settingsOverlay').classList.add('hidden');
@@ -2029,15 +2059,18 @@ function migrateNw() {
 }
 // fetch every synced dataset for the logged-in user from public.user_data and reconcile with local:
 //  - cloud has rows  -> cloud is the source of truth: overwrite in-memory state + the local cache
-//  - cloud is empty  -> seed the cloud from the current local data (first sign-in, e.g. an existing
-//                       local user creating an account) so nothing is wiped
+//  - cloud is empty  -> brand new account: start genuinely blank. Deliberately does NOT seed from
+//                       whatever happens to be sitting in this browser's local storage — that data
+//                       could belong to a previous person who used this same browser/device (e.g. a
+//                       shared computer), not the account that's signing in. To move real existing
+//                       data into a new account, use Export on the source and Import after signing in.
 async function loadAllData() {
   const uid = currentUser.id;
   const { data, error } = await sb.from('user_data').select('key,value').eq('user_id', uid);
   if (error) throw error;
   if (!data || data.length === 0) {
+    clearLocalSyncedData();
     migrateSettings(); migrateNw(); normalizeData();
-    await seedCloudFromLocal();
   } else {
     data.forEach(row => applyCloudValue(row.key, row.value));
     nwHistory = (nwHistory || []).sort((a, b) => (a.wk || '').localeCompare(b.wk || ''));
