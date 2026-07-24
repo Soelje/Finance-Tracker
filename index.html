@@ -44,6 +44,9 @@ header h1 { position: absolute; left: 50%; transform: translateX(-50%); white-sp
 .tabbar { display: flex; gap: 8px; margin-bottom: 18px; }
 .tabbtn { flex: 1; border: 1px solid var(--line); background: var(--card); border-radius: 10px; padding: 9px 0; font-size: 13px; font-weight: 650; cursor: pointer; color: var(--mut); box-shadow: var(--shadow); }
 .tabbtn.on { background: var(--green); border-color: var(--green); color: #fff; }
+.segwrap { display: flex; gap: 6px; }
+.segbtn { border: 1px solid var(--line); background: var(--card); border-radius: 8px; padding: 5px 12px; font-size: 12px; font-weight: 650; cursor: pointer; color: var(--mut); }
+.segbtn.on { background: var(--ink); border-color: var(--ink); color: var(--card); }
 .card { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 18px 20px; margin-bottom: 14px; box-shadow: var(--shadow); }
 .lbl { font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .14em; color: var(--mut); }
 .muted { color: var(--mut); font-size: 12px; }
@@ -323,29 +326,41 @@ tr.lotsrow td { background: var(--bg); padding: 6px 12px 10px; border-top: none;
 
   <div class="invrow">
   <div class="card">
-    <div class="lbl">Add position</div>
-    <div class="searchwrap" style="margin-top:12px">
-      <label>Search stock / ETF</label>
-      <input type="text" id="tSearch" placeholder="Start typing — e.g. Novo, Apple, S&P 500…" autocomplete="off">
-      <div class="srchdrop hidden" id="srchDrop"></div>
-    </div>
-    <button type="button" class="linkbtn" id="btnManualToggle" style="margin-top:6px;padding-left:0">Can't find it? Add manually</button>
-    <div id="manualWrap" class="hidden" style="margin-top:8px">
-      <div class="fields">
-        <div><label>Symbol</label><input type="text" id="mSymbol" placeholder="e.g. NOVO-B.CO"></div>
-        <div><label>Name</label><input type="text" id="mName" placeholder="e.g. Novo Nordisk A/S"></div>
-        <div><label>Currency</label><input type="text" id="mCurrency" placeholder="DKK" value="DKK"></div>
+    <div class="mhead">
+      <div class="lbl">Add position</div>
+      <div class="segwrap" id="txnModeToggle">
+        <button type="button" class="segbtn on" data-mode="buy">Buy</button>
+        <button type="button" class="segbtn" data-mode="sell">Sell</button>
       </div>
-      <button type="button" class="linkbtn" id="btnManualUse" style="padding-left:0">Use this</button>
-      <div class="muted" style="margin-top:4px">No price lookup needed — add the same Symbol to your Google Sheet and Refresh will pick up its price from there.</div>
     </div>
-    <div id="selWrap" class="hidden" style="margin-top:10px"></div>
+    <div id="buyWrap">
+      <div class="searchwrap">
+        <label>Search stock / ETF</label>
+        <input type="text" id="tSearch" placeholder="Start typing — e.g. Novo, Apple, S&P 500…" autocomplete="off">
+        <div class="srchdrop hidden" id="srchDrop"></div>
+      </div>
+      <button type="button" class="linkbtn" id="btnManualToggle" style="margin-top:6px;padding-left:0">Can't find it? Add manually</button>
+      <div id="manualWrap" class="hidden" style="margin-top:8px">
+        <div class="fields">
+          <div><label>Symbol</label><input type="text" id="mSymbol" placeholder="e.g. NOVO-B.CO"></div>
+          <div><label>Name</label><input type="text" id="mName" placeholder="e.g. Novo Nordisk A/S"></div>
+          <div><label>Currency</label><input type="text" id="mCurrency" placeholder="DKK" value="DKK"></div>
+        </div>
+        <button type="button" class="linkbtn" id="btnManualUse" style="padding-left:0">Use this</button>
+        <div class="muted" style="margin-top:4px">No price lookup needed — add the same Symbol to your Google Sheet and Refresh will pick up its price from there.</div>
+      </div>
+      <div id="selWrap" class="hidden" style="margin-top:10px"></div>
+    </div>
+    <div id="sellWrap" class="hidden">
+      <label>Which position did you sell?</label>
+      <select id="sellPosSelect"></select>
+    </div>
     <form id="holdForm" style="margin-top:10px">
       <div class="fields">
-        <div><label>Account</label><select id="hAcc"></select></div>
+        <div id="hAccWrap"><label>Account</label><select id="hAcc"></select></div>
         <div><label>Quantity</label><input type="number" id="hQty" step="0.0001" min="0" placeholder="shares"></div>
         <div><label id="hBuyLabel">Buy price</label><input type="number" id="hBuy" step="0.01" min="0" placeholder="per share"></div>
-        <div><label>Purchase date</label><input type="date" id="hDate"></div>
+        <div><label id="hDateLabel">Purchase date</label><input type="date" id="hDate"></div>
       </div>
       <div class="formfoot">
         <button type="button" class="linkbtn hidden" id="btnCancelHoldEdit">cancel</button>
@@ -353,7 +368,7 @@ tr.lotsrow td { background: var(--bg); padding: 6px 12px 10px; border-top: none;
       </div>
     </form>
     <div class="muted" id="invStatus" style="margin-top:8px"></div>
-    <div class="muted" style="margin-top:16px">Buying the same stock again in the same account adds a lot to the existing position.</div>
+    <div class="muted" id="txnHelpText" style="margin-top:16px">Buying the same stock again in the same account adds a lot to the existing position.</div>
   </div>
 
   <div class="card">
@@ -373,10 +388,10 @@ tr.lotsrow td { background: var(--bg); padding: 6px 12px 10px; border-top: none;
     <div id="holdList" style="margin-top:12px"></div>
   </div>
 
-  <div class="card hidden" id="salesCard">
-    <div class="lbl">Sold positions</div>
-    <div class="muted" style="margin-top:6px">Realized gains and losses from closed lots.</div>
-    <div id="salesList" style="margin-top:12px"></div>
+  <div class="card hidden" id="historyCard">
+    <div class="lbl">History log</div>
+    <div class="muted" style="margin-top:6px">Every buy and sell, newest first.</div>
+    <div id="historyList" style="margin-top:12px"></div>
   </div>
 
   <div class="invrow">
@@ -441,7 +456,7 @@ const S_KEY = 'lontracker_settings_v1', SH_KEY = 'lontracker_shifts_v1', T_KEY =
 const EX_KEY = 'lontracker_expenses_v1', RE_KEY = 'lontracker_recurring_v1';
 const HO_KEY = 'lontracker_holdings_v1', GO_KEY = 'lontracker_goals_v1', TAB_KEY = 'lontracker_tab', FX_KEY = 'lontracker_fx_v1';
 const CA_KEY = 'lontracker_cash_v1', SALES_KEY = 'lontracker_sales_v1', NW_KEY = 'lontracker_networth_v1';
-const FPC_KEY = 'lontracker_fpcollected_v1', PERF_KEY = 'lontracker_perfcache_v1';
+const FPC_KEY = 'lontracker_fpcollected_v1', PERF_KEY = 'lontracker_perfcache_v1', BUY_KEY = 'lontracker_buylog_v1';
 const DEFAULTS = {
   soWage: 125, soPensionPct: 0,
   rateUV: 256.81, rateIkkeUV: 174.58,
@@ -467,6 +482,7 @@ let recurring = readLocal(RE_KEY, []);
 let holdings = readLocal(HO_KEY, []).filter(h => h && h.symbol); // drop old-format entries
 let cash = readLocal(CA_KEY, []);
 let sales = readLocal(SALES_KEY, []);
+let buyLog = readLocal(BUY_KEY, []);
 let nwHistory = readLocal(NW_KEY, []);
 let fpCollected = readLocal(FPC_KEY, { soB: 0, soN: 0, skB: 0, skN: 0, totalN: 0, last: null });
 let goals = readLocal(GO_KEY, []); // legacy, no longer shown — kept local, not synced
@@ -476,7 +492,8 @@ let perfCache = readLocal(PERF_KEY, {}); // historical-price cache — stays loc
 // the nine cloud-synced keys: localStorage key -> the short row key used in user_data.key
 const SYNC_KEYS = {
   [S_KEY]: 'settings', [SH_KEY]: 'shifts', [EX_KEY]: 'expenses', [RE_KEY]: 'recurring',
-  [HO_KEY]: 'holdings', [CA_KEY]: 'cash', [SALES_KEY]: 'sales', [NW_KEY]: 'nwHistory', [FPC_KEY]: 'fpCollected'
+  [HO_KEY]: 'holdings', [CA_KEY]: 'cash', [SALES_KEY]: 'sales', [NW_KEY]: 'nwHistory', [FPC_KEY]: 'fpCollected',
+  [BUY_KEY]: 'buyLog'
 };
 const pushTimers = {};
 // the current in-memory value behind a given localStorage key (read live, at push time)
@@ -491,6 +508,7 @@ function syncValue(k) {
     case SALES_KEY: return sales;
     case NW_KEY: return nwHistory;
     case FPC_KEY: return fpCollected;
+    case BUY_KEY: return buyLog;
   }
 }
 // save(key, value) keeps its original signature so no existing call site changes. It always writes
@@ -528,6 +546,7 @@ function applyCloudValue(rowKey, value) {
     case 'sales': sales = value || []; break;
     case 'nwHistory': nwHistory = value || []; break;
     case 'fpCollected': fpCollected = value || { soB: 0, soN: 0, skB: 0, skN: 0, totalN: 0, last: null }; break;
+    case 'buyLog': buyLog = value || []; break;
     default: return;
   }
   // mirror into the local cache directly (without re-triggering a cloud push)
@@ -539,7 +558,7 @@ function applyCloudValue(rowKey, value) {
 function clearLocalSyncedData() {
   Object.keys(SYNC_KEYS).forEach(k => { try { localStorage.removeItem(k); } catch (e) {} });
   settings = { ...DEFAULTS };
-  shifts = []; expenses = []; recurring = []; holdings = []; cash = []; sales = []; nwHistory = [];
+  shifts = []; expenses = []; recurring = []; holdings = []; cash = []; sales = []; nwHistory = []; buyLog = [];
   fpCollected = { soB: 0, soN: 0, skB: 0, skN: 0, totalN: 0, last: null };
 }
 function syncError(err) {
@@ -1438,18 +1457,51 @@ function renderSel() {
   document.getElementById('clearSel').onclick = () => { selStock = null; renderSel(); };
 }
 let editingLot = null; // {posId, lotId}
+let txnMode = 'buy'; // 'buy' | 'sell' — which half of the Add Position form is showing
+function setTxnMode(mode) {
+  txnMode = mode;
+  document.querySelectorAll('#txnModeToggle .segbtn').forEach(b => b.classList.toggle('on', b.dataset.mode === mode));
+  document.getElementById('buyWrap').classList.toggle('hidden', mode !== 'buy');
+  document.getElementById('sellWrap').classList.toggle('hidden', mode !== 'sell');
+  document.getElementById('hAccWrap').classList.toggle('hidden', mode !== 'buy');
+  document.getElementById('txnHelpText').textContent = mode === 'sell'
+    ? "Sells come out of your oldest purchases first (FIFO), since we don't track exactly which specific shares you sold."
+    : 'Buying the same stock again in the same account adds a lot to the existing position.';
+  selStock = null; renderSel();
+  if (mode === 'sell') fillSellPosSelect();
+  resetHoldForm();
+}
+document.querySelectorAll('#txnModeToggle .segbtn').forEach(b => { b.onclick = () => setTxnMode(b.dataset.mode); });
 document.getElementById('holdForm').onsubmit = async e => {
   e.preventDefault();
   const qty = parseFloat(document.getElementById('hQty').value);
-  const buy = parseFloat(document.getElementById('hBuy').value) || 0;
+  const priceVal = parseFloat(document.getElementById('hBuy').value) || 0;
   const dateVal = document.getElementById('hDate').value;
-  const purchaseDate = /^\d{4}-\d{2}-\d{2}$/.test(dateVal) ? dateVal : iso(new Date());
+  const txnDate = /^\d{4}-\d{2}-\d{2}$/.test(dateVal) ? dateVal : iso(new Date());
   const status = document.getElementById('invStatus');
+
+  if (txnMode === 'sell' && !editingLot) {
+    const posId = document.getElementById('sellPosSelect').value;
+    const pos = holdings.find(p => p.id === posId);
+    if (!pos) { alert('Pick a position to sell from'); return; }
+    if (!qty || qty <= 0) { alert('Fill in quantity'); return; }
+    const available = qtyOf(pos);
+    if (qty > available + 1e-9) { alert('You only have ' + available.toLocaleString('da-DK') + ' shares of ' + pos.symbol + ' in ' + pos.account + '.'); return; }
+    let fx = pos.fx || 1;
+    try { fx = await fxRate(pos.currency); } catch { /* keep cached fx */ }
+    sellFifo(pos, qty, priceVal, txnDate, fx);
+    if (!pos.lots.length) holdings = holdings.filter(p => p.id !== pos.id);
+    save(HO_KEY, holdings); save(SALES_KEY, sales);
+    status.textContent = 'Recorded the sale of ' + qty.toLocaleString('da-DK') + ' ' + pos.symbol + '.';
+    resetHoldForm();
+    renderInvest(); renderPie(); rebuildNwHistory();
+    return;
+  }
   if (editingLot) {
     const pos = holdings.find(p => p.id === editingLot.posId);
     if (pos) {
       const lot = pos.lots.find(l => l.id === editingLot.lotId);
-      if (lot) { lot.qty = qty || lot.qty; lot.buy = buy; lot.date = purchaseDate; }
+      if (lot) { lot.qty = qty || lot.qty; lot.buy = priceVal; lot.date = txnDate; }
     }
     save(HO_KEY, holdings); resetHoldForm(); renderInvest(); renderPie(); rebuildNwHistory();
     return;
@@ -1460,7 +1512,8 @@ document.getElementById('holdForm').onsubmit = async e => {
   const btn = document.getElementById('btnHoldSubmit');
   const existing = holdings.find(p => p.symbol === selStock.symbol && p.account === account);
   if (existing) {
-    existing.lots.push({ id: newId(), qty, buy, date: purchaseDate });
+    existing.lots.push({ id: newId(), qty, buy: priceVal, date: txnDate });
+    logBuy(existing.symbol, existing.name, account, existing.currency, qty, priceVal, txnDate);
     save(HO_KEY, holdings);
     selStock = null; renderSel();
     document.getElementById('hQty').value = ''; document.getElementById('hBuy').value = '';
@@ -1469,7 +1522,7 @@ document.getElementById('holdForm').onsubmit = async e => {
     return;
   }
   btn.disabled = true; status.textContent = 'Fetching price, sector and FX…';
-  const h = { id: newId(), symbol: selStock.symbol, name: selStock.name, type: selStock.type, currency: selStock.currency, account, price: 0, chg: 0, sector: null, fx: 1, updated: null, lots: [{ id: newId(), qty, buy, date: purchaseDate }] };
+  const h = { id: newId(), symbol: selStock.symbol, name: selStock.name, type: selStock.type, currency: selStock.currency, account, price: 0, chg: 0, sector: null, fx: 1, updated: null, lots: [{ id: newId(), qty, buy: priceVal, date: txnDate }] };
   try {
     const p = await fetchProfile(h.symbol);
     h.price = p.price; h.chg = p.chg; h.sector = p.sector;
@@ -1492,6 +1545,7 @@ document.getElementById('holdForm').onsubmit = async e => {
   h.fx = await fxRate(h.currency);
   h.updated = Date.now();
   holdings.push(h);
+  logBuy(h.symbol, h.name, account, h.currency, qty, priceVal, txnDate);
   save(HO_KEY, holdings);
   selStock = null; renderSel();
   document.getElementById('hQty').value = ''; document.getElementById('hBuy').value = '';
@@ -1503,14 +1557,16 @@ function resetHoldForm() {
   editingLot = null;
   document.getElementById('hQty').value = ''; document.getElementById('hBuy').value = '';
   document.getElementById('hDate').value = iso(new Date());
-  document.getElementById('btnHoldSubmit').textContent = '+ Add position';
+  document.getElementById('btnHoldSubmit').textContent = txnMode === 'sell' ? '− Record sale' : '+ Add position';
   document.getElementById('btnCancelHoldEdit').classList.add('hidden');
-  document.getElementById('hBuyLabel').textContent = 'Buy price';
+  document.getElementById('hBuyLabel').textContent = txnMode === 'sell' ? 'Sell price' : 'Buy price';
+  document.getElementById('hDateLabel').textContent = txnMode === 'sell' ? 'Sell date' : 'Purchase date';
 }
 document.getElementById('btnCancelHoldEdit').onclick = resetHoldForm;
 function startLotEdit(posId, lotId) {
   const pos = holdings.find(p => p.id === posId); if (!pos) return;
   const lot = pos.lots.find(l => l.id === lotId); if (!lot) return;
+  setTxnMode('buy');
   editingLot = { posId, lotId };
   document.getElementById('hQty').value = lot.qty;
   document.getElementById('hBuy').value = lot.buy;
@@ -1614,7 +1670,11 @@ function snapshotNetWorth(invested, cashTotal) {
 // and historical prices, so the chart shows real growth since you actually bought things instead
 // of only starting from whenever you began using the tracker. Never touches/overwrites a date
 // that already has a real snapshot recorded — it only fills in the gaps before that.
-// Cash has no history to pull from, so backfilled points use today's cash total as a flat estimate.
+// Cash isn't backfilled (no history to pull from) — backfilled points are invested-only, cash
+// starts showing up once the live day-to-day snapshots kick in.
+// Sales are accounted for: a lot's held quantity at a past date = what was originally bought into
+// it (still-remaining qty + everything ever sold from it) minus whatever had already been sold by
+// that date, using the buyDate on each sale record to match it back to the right lot.
 let rebuildingNw = false;
 async function rebuildNwHistory() {
   if (rebuildingNw || !holdings.length) return;
@@ -1628,7 +1688,6 @@ async function rebuildNwHistory() {
     const symbols = [...new Set(holdings.map(p => p.symbol))];
     const histories = {};
     for (const s of symbols) { try { histories[s] = await fetchHistory(s); } catch { histories[s] = []; } }
-    const cashTotal = cash.reduce((a, c) => a + c.amount, 0);
     const start = new Date(earliest + 'T12:00:00');
     const now = new Date();
     const points = [];
@@ -1636,19 +1695,26 @@ async function rebuildNwHistory() {
     while (d < now) { points.push(iso(d)); d.setMonth(d.getMonth() + 1); }
     points.push(iso(new Date(now.getFullYear(), now.getMonth(), 1)));
     const existingKeys = new Set(nwHistory.map(x => x.wk));
+    const salesFor = (symbol, account, buyDate) => sales.filter(s => s.symbol === symbol && s.account === account && s.buyDate === buyDate);
     points.forEach(wk => {
       if (existingKeys.has(wk)) return; // don't clobber a real recorded snapshot
       let invested = 0;
       holdings.forEach(p => {
-        const qtyHeld = p.lots.filter(l => !l.date || l.date <= wk).reduce((a, l) => a + l.qty, 0);
-        if (qtyHeld <= 0) return;
-        const series = histories[p.symbol] || [];
-        const pt = closestClose(series, wk);
-        const price = pt ? pt.close : (p.price || 0);
-        invested += qtyHeld * price * (p.fx || 1);
+        p.lots.forEach(l => {
+          if (!l.date || l.date > wk) return; // not bought yet as of this point
+          const relatedSales = salesFor(p.symbol, p.account, l.date);
+          const everBought = l.qty + relatedSales.reduce((a, s) => a + s.qty, 0);
+          const soldByThen = relatedSales.filter(s => s.sellDate <= wk).reduce((a, s) => a + s.qty, 0);
+          const qtyHeld = everBought - soldByThen;
+          if (qtyHeld <= 0) return;
+          const series = histories[p.symbol] || [];
+          const pt = closestClose(series, wk);
+          const price = pt ? pt.close : (p.price || 0);
+          invested += qtyHeld * price * (p.fx || 1);
+        });
       });
-      if (invested <= 0 && cashTotal <= 0) return;
-      nwHistory.push({ wk, invested: Math.round(invested), cash: Math.round(cashTotal), total: Math.round(invested + cashTotal) });
+      if (invested <= 0) return;
+      nwHistory.push({ wk, invested: Math.round(invested), cash: 0, total: Math.round(invested) });
     });
     nwHistory.sort((a, b) => a.wk.localeCompare(b.wk));
     save(NW_KEY, nwHistory);
@@ -1702,6 +1768,9 @@ function renderInvest() {
     <div class="big">${fmt0(val + cashTotal)}</div>
     <div class="sub">${fmt0(val)} invested · ${fmt0(cashTotal)} cash</div>
     <div class="chips">${activeAccounts.map(a => `<span class="chip">${a} ${fmt0(accVal(a))}</span>`).join('')}${cashTotal > 0 ? `<span class="chip">💵 Cash ${fmt0(cashTotal)}</span>` : ''}</div>`;
+
+  fillSellPosSelect();
+  renderHistory();
 
   const upd = holdings.reduce((a, p) => Math.max(a, p.updated || 0), 0);
   document.getElementById('pricesUpdated').textContent = upd ? 'As of ' + new Date(upd).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) + (lastRefreshMeta ? ' · ' + lastRefreshMeta : '') : '';
@@ -1815,39 +1884,91 @@ async function sellLot(posId, lotId) {
     lot.qty -= qty;
   }
   save(HO_KEY, holdings);
-  renderInvest(); renderPie(); renderSales();
+  renderInvest(); renderPie();
 }
 function saleRealized(s) { return (s.sellPrice - s.buyPrice) * s.qty * (s.fx || 1); }
-function renderSales() {
-  const card = document.getElementById('salesCard');
-  const el = document.getElementById('salesList');
+// One combined, chronological log of everything ever bought (buyLog — persists even after a
+// position is fully sold and its lot is gone) and everything ever sold (sales — has realized P&L).
+// Newest first. Refreshed automatically by renderInvest() so it's always in sync.
+function renderHistory() {
+  const card = document.getElementById('historyCard');
+  const el = document.getElementById('historyList');
   if (!card || !el) return;
-  if (!sales.length) { card.classList.add('hidden'); return; }
+  const entries = [
+    ...buyLog.map(b => ({ ...b, kind: 'buy', sortDate: b.date || '' })),
+    ...sales.map(s => ({ ...s, kind: 'sell', sortDate: s.sellDate || '' }))
+  ].sort((a, b) => b.sortDate.localeCompare(a.sortDate));
+  if (!entries.length) { card.classList.add('hidden'); return; }
   card.classList.remove('hidden');
-  const sorted = [...sales].sort((a, b) => (b.sellDate || '').localeCompare(a.sellDate || ''));
   const totalRealized = sales.reduce((a, s) => a + saleRealized(s), 0);
-  let html = `<div class="prow total" style="margin-bottom:8px"><span class="k">Total realized</span><span class="tilkonto" style="color:${totalRealized >= 0 ? '' : 'var(--red)'}">${totalRealized >= 0 ? '+' : '−'}${fmt0(Math.abs(totalRealized))}</span></div>`;
-  html += `<table class="shiftlist"><tr><th>Sold</th><th>Position</th><th class="num">Qty</th><th class="num">Buy</th><th class="num">Sell</th><th class="num">Realized</th><th></th></tr>`;
-  sorted.forEach(s => {
-    const g = saleRealized(s);
-    const gp = s.buyPrice > 0 ? ((s.sellPrice - s.buyPrice) / s.buyPrice * 100) : 0;
-    html += `<tr>
-      <td class="muted">${s.sellDate ? dstr(new Date(s.sellDate + 'T12:00:00')) : '—'}</td>
-      <td><b>${s.symbol}</b><br><span class="muted" style="font-size:11px">${s.account}</span></td>
-      <td class="num">${s.qty.toLocaleString('da-DK')}</td>
-      <td class="num">${s.buyPrice.toLocaleString('da-DK', { maximumFractionDigits: 2 })} ${s.currency}</td>
-      <td class="num">${s.sellPrice.toLocaleString('da-DK', { maximumFractionDigits: 2 })} ${s.currency}</td>
-      <td class="num" style="color:${g >= 0 ? 'var(--c-skole)' : 'var(--red)'}"><b>${g >= 0 ? '+' : '−'}${fmt0(Math.abs(g))}</b><br><span style="font-size:11px">${(gp >= 0 ? '+' : '') + gp.toFixed(1)}%</span></td>
-      <td><button class="icon srm" data-id="${s.id}" title="Delete record" style="color:#c0392b">×</button></td>
-    </tr>`;
+  let html = sales.length
+    ? `<div class="prow total" style="margin-bottom:8px"><span class="k">Total realized</span><span class="tilkonto" style="color:${totalRealized >= 0 ? '' : 'var(--red)'}">${totalRealized >= 0 ? '+' : '−'}${fmt0(Math.abs(totalRealized))}</span></div>`
+    : '';
+  html += `<table class="shiftlist"><tr><th>Date</th><th></th><th>Position</th><th class="num">Qty</th><th class="num">Price</th><th class="num">P/L</th><th></th></tr>`;
+  entries.forEach(x => {
+    if (x.kind === 'buy') {
+      html += `<tr>
+        <td class="muted">${x.date ? dstr(new Date(x.date + 'T12:00:00')) : '—'}</td>
+        <td><span class="muted" style="font-size:11px">Bought</span></td>
+        <td><b>${x.symbol}</b><br><span class="muted" style="font-size:11px">${x.account}</span></td>
+        <td class="num">${x.qty.toLocaleString('da-DK')}</td>
+        <td class="num">${(x.price || 0).toLocaleString('da-DK', { maximumFractionDigits: 2 })} ${x.currency}</td>
+        <td class="num">—</td>
+        <td></td>
+      </tr>`;
+    } else {
+      const g = saleRealized(x);
+      const gp = x.buyPrice > 0 ? ((x.sellPrice - x.buyPrice) / x.buyPrice * 100) : 0;
+      html += `<tr>
+        <td class="muted">${x.sellDate ? dstr(new Date(x.sellDate + 'T12:00:00')) : '—'}</td>
+        <td><span class="muted" style="font-size:11px">Sold</span></td>
+        <td><b>${x.symbol}</b><br><span class="muted" style="font-size:11px">${x.account}</span></td>
+        <td class="num">${x.qty.toLocaleString('da-DK')}</td>
+        <td class="num">${x.sellPrice.toLocaleString('da-DK', { maximumFractionDigits: 2 })} ${x.currency}</td>
+        <td class="num" style="color:${g >= 0 ? 'var(--c-skole)' : 'var(--red)'}"><b>${g >= 0 ? '+' : '−'}${fmt0(Math.abs(g))}</b><br><span style="font-size:11px">${(gp >= 0 ? '+' : '') + gp.toFixed(1)}%</span></td>
+        <td><button class="icon srm" data-id="${x.id}" title="Delete record" style="color:#c0392b">×</button></td>
+      </tr>`;
+    }
   });
   html += '</table>';
   el.innerHTML = html;
   el.querySelectorAll('.srm').forEach(b => b.onclick = () => {
     if (!confirm('Delete this sale record? This only removes the record — it does not restore the shares.')) return;
     sales = sales.filter(s => s.id !== b.dataset.id);
-    save(SALES_KEY, sales); renderSales();
+    save(SALES_KEY, sales); renderHistory();
   });
+}
+// Sells `qty` shares from a position's oldest lots first (FIFO). Used by Sell mode in Add Position,
+// where the user just knows they sold some shares but not which specific purchase they came from.
+// Splits across multiple lots as needed and logs one sale record per lot touched, so realized P&L
+// stays correct against each lot's own buy price. Caller saves + re-renders afterwards.
+function sellFifo(pos, qtyToSell, sellPrice, sellDate, fx) {
+  const lots = [...pos.lots].sort((a, b) => (a.date || '0000-00-00').localeCompare(b.date || '0000-00-00'));
+  let remaining = qtyToSell;
+  for (const lot of lots) {
+    if (remaining <= 1e-9) break;
+    const take = Math.min(lot.qty, remaining);
+    if (take <= 0) continue;
+    sales.push({
+      id: newId(), symbol: pos.symbol, name: pos.name, account: pos.account, currency: pos.currency,
+      qty: take, buyPrice: lot.buy || 0, buyDate: lot.date || null, sellPrice, sellDate, fx
+    });
+    lot.qty -= take;
+    remaining -= take;
+  }
+  pos.lots = pos.lots.filter(l => l.qty > 1e-9);
+}
+function logBuy(symbol, name, account, currency, qty, price, date) {
+  buyLog.push({ id: newId(), symbol, name, account, currency, qty, price, date });
+  save(BUY_KEY, buyLog);
+}
+function fillSellPosSelect() {
+  const sel = document.getElementById('sellPosSelect');
+  if (!sel) return;
+  const openPos = holdings.filter(p => qtyOf(p) > 0).sort((a, b) => a.symbol.localeCompare(b.symbol));
+  sel.innerHTML = openPos.length
+    ? openPos.map(p => `<option value="${p.id}">${p.symbol} — ${p.account} (${qtyOf(p).toLocaleString('da-DK')} shares)</option>`).join('')
+    : '<option value="">No open positions to sell</option>';
 }
 let pie = null;
 function renderPie() {
@@ -2069,7 +2190,7 @@ document.getElementById('btnSettings').onclick = () => { renderSettings(); docum
 document.getElementById('btnClose').onclick = () => document.getElementById('settingsOverlay').classList.add('hidden');
 document.getElementById('settingsOverlay').onclick = e => { if (e.target.id === 'settingsOverlay') e.target.classList.add('hidden'); };
 document.getElementById('btnExport').onclick = () => {
-  const blob = new Blob([JSON.stringify({ settings, shifts, expenses, recurring, holdings, cash, goals, fpCollected, nwHistory, sales }, null, 2)], { type: 'application/json' });
+  const blob = new Blob([JSON.stringify({ settings, shifts, expenses, recurring, holdings, cash, goals, fpCollected, nwHistory, sales, buyLog }, null, 2)], { type: 'application/json' });
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob); a.download = 'finances-backup.json'; a.click();
 };
@@ -2089,8 +2210,9 @@ document.getElementById('importFile').onchange = e => {
       if (d.fpCollected) fpCollected = d.fpCollected;
       if (d.nwHistory) nwHistory = (d.nwHistory || []).map(x => x.ym ? { wk: x.ym + '-01', invested: x.invested, cash: x.cash, total: x.total } : x);
       if (d.sales) sales = d.sales;
+      if (d.buyLog) buyLog = d.buyLog;
       normalizeData(); // handle backups from older versions
-      saveSettings(); saveShifts(); save(EX_KEY, expenses); save(RE_KEY, recurring); save(HO_KEY, holdings); save(CA_KEY, cash); save(GO_KEY, goals); save(FPC_KEY, fpCollected); save(NW_KEY, nwHistory); save(SALES_KEY, sales);
+      saveSettings(); saveShifts(); save(EX_KEY, expenses); save(RE_KEY, recurring); save(HO_KEY, holdings); save(CA_KEY, cash); save(GO_KEY, goals); save(FPC_KEY, fpCollected); save(NW_KEY, nwHistory); save(SALES_KEY, sales); save(BUY_KEY, buyLog);
       fillAccSelect(); renderAll(); renderSettings();
       alert('Import complete — ' + shifts.length + ' shifts, ' + holdings.length + ' positions, ' + expenses.length + ' expenses loaded.');
     } catch (err) { alert('Import failed: ' + (err && err.message ? err.message : err)); }
@@ -2101,7 +2223,7 @@ document.getElementById('importFile').onchange = e => {
 // ================= INIT =================
 function renderAll() {
   renderHero(); renderYearStats(); renderPayouts(); renderFrikort(); renderFp(); renderMonthView(); renderChart();
-  renderBudget(); renderInvest(); renderCash(); renderPie(); renderNW(); renderSales();
+  renderBudget(); renderInvest(); renderCash(); renderPie(); renderNW();
 }
 // migrations that used to run at load against localStorage data — now run after fetching from Supabase
 function migrateSettings() {
