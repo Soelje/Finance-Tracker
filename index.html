@@ -1,0 +1,1915 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Oscar's Finances</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.5.0/dist/chart.umd.js" integrity="sha384-iU8HYtnGQ8Cy4zl7gbNMOhsDTTKX02BTXptVP/vqAWIaTfM7isw76iyZCsjL2eVi" crossorigin="anonymous"></script>
+<style>
+:root {
+  color-scheme: light;
+  --bg: #f7f6f2; --card: #ffffff; --ink: #22261f; --mut: #9a998f; --line: #eceae3;
+  --green: #1d5c44;
+  --green-grad: linear-gradient(135deg, #163f30 0%, #2c6b51 100%);
+  --orange: #d97a33; --red: #c0392b; --tagbg: #faf0cf; --tagink: #8a6d1d;
+  --c-so: #c0392b; --c-skole: #1d8a5f; --c-andet: #2563eb;
+  --shadow: 0 1px 3px rgba(30,35,25,.06);
+}
+body.dark {
+  color-scheme: dark;
+  --bg: #12150f; --card: #1b1f18; --ink: #ece9df; --mut: #8b8d80; --line: #2a2e25;
+  --tagbg: #3a331a; --tagink: #e5c96a;
+  --shadow: 0 1px 3px rgba(0,0,0,.3);
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  background: var(--bg); color: var(--ink);
+  padding: 20px 16px 50px; font-size: 13.5px; max-width: 1080px; margin: 0 auto;
+  transition: background .25s, color .25s;
+}
+header, .tabbar, #page-lon, #page-budget { max-width: 760px; margin-left: auto; margin-right: auto; }
+.invrow { display: grid; grid-template-columns: 1.05fr .95fr; gap: 14px; align-items: stretch; }
+.invrow > .card { margin-bottom: 14px; }
+@media (max-width: 860px) { .invrow { grid-template-columns: 1fr; } }
+.serif { font-family: Georgia, "Times New Roman", serif; }
+header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; }
+h1 { font-family: Georgia, serif; font-size: 19px; font-weight: 700; }
+.hbtns { display: flex; gap: 8px; }
+.pillbtn { border: 1px solid var(--line); background: var(--card); border-radius: 999px; padding: 6px 13px; font-size: 12px; cursor: pointer; color: var(--ink); box-shadow: var(--shadow); }
+.pillbtn:hover { filter: brightness(.97); }
+.tabbar { display: flex; gap: 8px; margin-bottom: 18px; }
+.tabbtn { flex: 1; border: 1px solid var(--line); background: var(--card); border-radius: 10px; padding: 9px 0; font-size: 13px; font-weight: 650; cursor: pointer; color: var(--mut); box-shadow: var(--shadow); }
+.tabbtn.on { background: var(--green); border-color: var(--green); color: #fff; }
+.card { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 18px 20px; margin-bottom: 14px; box-shadow: var(--shadow); }
+.lbl { font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .14em; color: var(--mut); }
+.muted { color: var(--mut); font-size: 12px; }
+
+.hero { background: var(--green-grad); border: none; color: #fff; padding: 22px 24px; }
+.hero .lbl { color: rgba(255,255,255,.65); }
+.hero .big { font-family: Georgia, serif; font-size: 38px; font-weight: 700; margin: 6px 0 2px; letter-spacing: -.01em; }
+.hero .sub { font-size: 12px; color: rgba(255,255,255,.7); margin-bottom: 12px; }
+.chips { display: flex; gap: 8px; flex-wrap: wrap; }
+.chip { display: inline-flex; align-items: center; gap: 6px; background: rgba(255,255,255,.13); border-radius: 999px; padding: 4px 12px; font-size: 11.5px; color: rgba(255,255,255,.92); }
+.dot { width: 7px; height: 7px; border-radius: 50%; display: inline-block; flex: none; }
+.d-so { background: var(--c-so); } .d-skole { background: var(--c-skole); } .d-andet { background: var(--c-andet); }
+.chip .dot { outline: 2px solid rgba(255,255,255,.25); }
+
+.statrow { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 14px; }
+@media (max-width: 560px) { .statrow { grid-template-columns: 1fr; } }
+.stat { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 14px 16px; box-shadow: var(--shadow); }
+.stat .v { font-family: Georgia, serif; font-size: 22px; font-weight: 700; margin: 4px 0 2px; }
+.stat .s { font-size: 11px; color: var(--mut); }
+
+.jobpills { display: flex; gap: 8px; flex-wrap: wrap; margin: 12px 0 14px; }
+.jp { display: inline-flex; align-items: center; gap: 7px; border: 1px solid var(--line); background: var(--card); border-radius: 999px; padding: 7px 14px; font-size: 12.5px; font-weight: 600; cursor: pointer; color: var(--ink); }
+.jp.sel-so { background: color-mix(in srgb, var(--c-so) 12%, var(--card)); border-color: var(--c-so); }
+.jp.sel-skole { background: color-mix(in srgb, var(--c-skole) 12%, var(--card)); border-color: var(--c-skole); }
+.jp.sel-andet { background: color-mix(in srgb, var(--c-andet) 12%, var(--card)); border-color: var(--c-andet); }
+.fields { display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 10px; }
+label { display: block; font-size: 10px; color: var(--mut); margin-bottom: 4px; font-weight: 700; text-transform: uppercase; letter-spacing: .1em; }
+input, select { width: 100%; padding: 9px 10px; border: 1px solid var(--line); border-radius: 9px; font-size: 13px; background: var(--bg); color: var(--ink); }
+input:focus, select:focus { outline: 2px solid color-mix(in srgb, var(--green) 35%, transparent); border-color: var(--green); }
+.formfoot { display: flex; justify-content: flex-end; align-items: center; gap: 12px; margin-top: 14px; }
+button.btn { padding: 9px 18px; border: none; border-radius: 9px; background: var(--green); color: #fff; font-weight: 650; cursor: pointer; font-size: 13px; }
+button.btn:hover { filter: brightness(1.1); }
+button.btn:disabled { opacity: .6; cursor: default; }
+button.linkbtn { background: none; border: none; color: var(--mut); cursor: pointer; font-size: 12px; }
+
+.explain { font-size: 11.5px; color: var(--mut); margin: 6px 0 14px; }
+.paydate { font-family: Georgia, serif; font-size: 18px; font-weight: 700; display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+.tag { font-family: -apple-system, sans-serif; font-size: 10.5px; font-weight: 700; background: var(--tagbg); color: var(--tagink); border-radius: 6px; padding: 3px 8px; }
+.jobhead { display: flex; align-items: center; gap: 7px; font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .12em; color: var(--mut); margin-top: 10px; }
+.prow { display: flex; justify-content: space-between; padding: 5px 0; font-size: 13px; }
+.prow.total { border-top: 1px solid var(--line); margin-top: 8px; padding-top: 10px; align-items: baseline; }
+.prow.total .k { font-weight: 650; }
+.prow .num { font-variant-numeric: tabular-nums; }
+.tilkonto { font-family: Georgia, serif; font-size: 22px; font-weight: 700; color: var(--green); }
+body.dark .tilkonto { color: #6fce9f; }
+.naeste-blk { border-top: 1px dashed var(--line); margin-top: 16px; padding-top: 12px; display: flex; justify-content: space-between; align-items: baseline; }
+.naeste-blk .amt { font-family: Georgia, serif; font-weight: 700; font-size: 16px; }
+details { margin-top: 10px; }
+summary { font-size: 12px; color: var(--mut); cursor: pointer; user-select: none; }
+details .prow { font-size: 12px; color: var(--mut); padding: 3px 0; }
+
+.fkrow { display: flex; justify-content: space-between; font-size: 13px; padding: 4px 0; }
+.fkbar, .pbar { height: 7px; border-radius: 99px; background: color-mix(in srgb, var(--mut) 15%, var(--bg)); margin: 8px 0 5px; overflow: hidden; }
+.fkbar i, .pbar i { display: block; height: 100%; border-radius: 99px; background: var(--orange); }
+.fkmeta { display: flex; justify-content: space-between; font-size: 11px; color: var(--mut); margin-bottom: 14px; }
+.fkbig { font-family: Georgia, serif; font-size: 30px; font-weight: 700; color: var(--orange); }
+.fkbig small { font-family: -apple-system, sans-serif; font-size: 12px; color: var(--mut); font-weight: 400; margin-left: 8px; }
+
+.fpgrid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 12px 0; }
+@media (max-width: 480px) { .fpgrid { grid-template-columns: 1fr; } }
+.fpmini { border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; background: var(--bg); }
+.fpmini .prow { font-size: 12.5px; padding: 2px 0; }
+.fpbanner { background: color-mix(in srgb, var(--green) 12%, var(--card)); border: 1px solid color-mix(in srgb, var(--green) 30%, var(--card)); border-radius: 10px; padding: 12px 14px; display: flex; justify-content: space-between; align-items: center; }
+.fpbanner .amt { font-family: Georgia, serif; font-size: 20px; font-weight: 700; color: var(--green); }
+body.dark .fpbanner .amt { color: #6fce9f; }
+
+.mnav { display: flex; align-items: center; gap: 10px; }
+.mnav button { border: 1px solid var(--line); background: var(--card); color: var(--ink); border-radius: 8px; width: 28px; height: 28px; cursor: pointer; }
+.mnav .cur { font-family: Georgia, serif; font-weight: 700; font-size: 15px; min-width: 110px; text-align: center; }
+.mhead { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+table { width: 100%; border-collapse: collapse; font-size: 13px; }
+td, th { padding: 8px 6px; text-align: left; }
+th { font-size: 10px; color: var(--mut); font-weight: 700; text-transform: uppercase; letter-spacing: .08em; }
+td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+.shiftlist td { border-top: 1px solid var(--line); }
+.jobtag { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 650; }
+button.icon { background: none; border: none; cursor: pointer; font-size: 13px; padding: 2px 5px; border-radius: 6px; color: var(--ink); }
+button.icon:hover { background: var(--bg); }
+.mtotal { display: flex; justify-content: space-between; border-top: 1px solid var(--line); margin-top: 4px; padding-top: 10px; font-weight: 650; }
+.emptybox { border: 1px dashed var(--line); border-radius: 10px; padding: 20px; text-align: center; color: var(--mut); font-size: 12.5px; }
+.chartbox { height: 190px; position: relative; margin-top: 14px; }
+.piebox { height: 230px; position: relative; margin-top: 6px; }
+.hidden { display: none !important; }
+.aiout { white-space: pre-wrap; font-size: 13px; line-height: 1.5; margin-top: 12px; border-top: 1px solid var(--line); padding-top: 12px; }
+
+/* portfolio: accounts & lots */
+.accgrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(126px, 1fr)); gap: 10px; margin-top: 12px; }
+.accmini { border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; background: var(--bg); }
+.accmini .k { font-size: 9.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .1em; color: var(--mut); }
+.accmini .v { font-family: Georgia, serif; font-size: 15px; font-weight: 700; margin-top: 3px; font-variant-numeric: tabular-nums; }
+.accmini .s { font-size: 10.5px; color: var(--mut); }
+.acchead { display: flex; justify-content: space-between; align-items: baseline; margin-top: 20px; margin-bottom: 2px; }
+.acchead .nm { font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .12em; color: var(--mut); }
+.acchead .val { font-family: Georgia, serif; font-weight: 700; font-size: 13.5px; font-variant-numeric: tabular-nums; }
+/* fixed-width position tables so columns line up across every account section */
+.postable { table-layout: fixed; }
+.postable th { font-family: Georgia, "Times New Roman", serif; font-style: italic; font-weight: 700; text-transform: none; letter-spacing: .02em; font-size: 12px; color: var(--mut); border-bottom: 1px solid var(--line); }
+.postable td { overflow: hidden; text-overflow: ellipsis; }
+.postable .posname { white-space: nowrap; }
+.acchead { border-bottom: 1px solid var(--line); padding-bottom: 6px; }
+.chev { background: none; border: none; cursor: pointer; color: var(--mut); font-size: 10px; padding: 2px 4px; transition: transform .15s; }
+.chev.open { transform: rotate(90deg); }
+tr.lotsrow td { background: var(--bg); padding: 6px 12px 10px; border-top: none; }
+.lotline { display: flex; justify-content: space-between; align-items: center; font-size: 12px; padding: 4px 0; border-bottom: 1px dashed var(--line); font-variant-numeric: tabular-nums; }
+.lotline:last-child { border-bottom: none; }
+
+/* ticker search */
+.searchwrap { position: relative; }
+.srchdrop { position: absolute; top: 100%; left: 0; right: 0; background: var(--card); border: 1px solid var(--line); border-radius: 10px; margin-top: 4px; z-index: 30; box-shadow: 0 6px 20px rgba(0,0,0,.12); max-height: 260px; overflow: auto; }
+.srchitem { padding: 9px 12px; cursor: pointer; border-top: 1px solid var(--line); font-size: 12.5px; display: flex; justify-content: space-between; gap: 8px; }
+.srchitem:first-child { border-top: none; }
+.srchitem:hover { background: var(--bg); }
+.srchitem .sym { font-weight: 700; }
+.srchitem .meta { color: var(--mut); font-size: 11.5px; text-align: right; }
+.selchip { display: inline-flex; align-items: center; gap: 8px; background: color-mix(in srgb, var(--green) 12%, var(--card)); border: 1px solid var(--green); border-radius: 999px; padding: 6px 12px; font-size: 12.5px; font-weight: 650; }
+.selchip button { background: none; border: none; cursor: pointer; color: var(--mut); font-size: 14px; }
+.updrow { display: flex; justify-content: space-between; align-items: center; margin-top: 10px; }
+
+/* modal */
+.overlay { position: fixed; inset: 0; background: rgba(10,12,8,.45); display: flex; align-items: flex-start; justify-content: center; padding: 40px 16px; z-index: 50; }
+.modal { background: var(--card); border-radius: 14px; padding: 22px; max-width: 560px; width: 100%; max-height: 85vh; overflow: auto; }
+.modalhead { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; }
+.modal h2 { font-family: Georgia, serif; font-size: 16px; }
+.close { background: none; border: none; font-size: 20px; cursor: pointer; color: var(--mut); }
+.settings-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 14px; }
+@media (max-width: 480px) { .settings-grid { grid-template-columns: 1fr; } }
+.note { background: var(--tagbg); color: var(--tagink); border-radius: 10px; padding: 10px 12px; font-size: 12px; margin-bottom: 14px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Oscar's Finances</h1>
+  <div class="hbtns">
+    <button class="pillbtn" id="btnTheme">🌙 Dark</button>
+    <button class="pillbtn" id="btnSettings" title="Settings">⚙</button>
+  </div>
+</header>
+
+<nav class="tabbar">
+  <button class="tabbtn on" data-page="lon">Salary</button>
+  <button class="tabbtn" data-page="budget">Budget</button>
+  <button class="tabbtn" data-page="invest">Investment</button>
+</nav>
+
+<!-- ============ SALARY ============ -->
+<div id="page-lon">
+  <div class="card hero" id="heroCard"></div>
+  <div class="statrow" id="yearStats"></div>
+
+  <div class="card">
+    <div class="lbl">Log shift</div>
+    <div class="jobpills" id="jobPills">
+      <button type="button" class="jp" data-job="so"><span class="dot d-so"></span>Søpavillonen</button>
+      <button type="button" class="jp" data-job="skole"><span class="dot d-skole"></span>School</button>
+      <button type="button" class="jp" data-job="andet"><span class="dot d-andet"></span>Other</button>
+    </div>
+    <form id="shiftForm">
+      <div class="fields">
+        <div><label>Date</label><input type="date" id="fDate" required></div>
+        <div id="fStartWrap"><label>Check in</label><input type="time" id="fStart"></div>
+        <div id="fEndWrap"><label>Check out</label><input type="time" id="fEnd"></div>
+        <div id="fRateWrap" class="hidden"><label>Type</label><select id="fRate"><option value="uv">Teaching (UV)</option><option value="ikkeuv">Non-teaching</option></select></div>
+        <div id="fHoursWrap" class="hidden"><label id="fHoursLabel">Modules</label><input type="number" id="fHours" step="0.5" min="0.5" placeholder="count"></div>
+        <div id="fRateCustomWrap" class="hidden"><label>Rate (DKK/h)</label><input type="number" id="fRateCustom" step="0.01" min="0" placeholder="e.g. 150"></div>
+        <div><label>Note</label><input type="text" id="fNote" placeholder="optional"></div>
+      </div>
+      <div class="formfoot">
+        <button type="button" class="linkbtn hidden" id="btnCancelEdit">cancel</button>
+        <button type="submit" class="btn" id="btnSubmit">+ Add shift</button>
+      </div>
+    </form>
+  </div>
+
+  <div class="card" id="payoutCard"></div>
+  <div class="card" id="frikortCard"></div>
+  <div class="card" id="fpCard"></div>
+
+  <div class="card">
+    <div class="mhead">
+      <div class="lbl">Month overview</div>
+      <div class="mnav">
+        <button id="mPrev">←</button>
+        <span class="cur" id="mCur"></span>
+        <button id="mNext">→</button>
+      </div>
+    </div>
+    <div id="monthBody"></div>
+    <div class="chartbox" id="chartBox"><canvas id="hoursChart"></canvas></div>
+  </div>
+</div>
+
+<!-- ============ BUDGET ============ -->
+<div id="page-budget" class="hidden">
+  <div class="card hero" id="budHero"></div>
+  <div class="statrow" id="budStats"></div>
+  <div class="card" id="budBreakdown"></div>
+
+  <div class="card">
+    <div class="lbl">Log expense</div>
+    <form id="expForm" style="margin-top:12px">
+      <div class="fields">
+        <div><label>Date</label><input type="date" id="eDate" required></div>
+        <div><label>Amount (DKK)</label><input type="number" id="eAmt" step="0.01" min="0" placeholder="e.g. 249"></div>
+        <div><label>Category</label><select id="eCat"></select></div>
+        <div><label>Note</label><input type="text" id="eNote" placeholder="optional"></div>
+      </div>
+      <div class="formfoot">
+        <button type="button" class="linkbtn hidden" id="btnCancelExpEdit">cancel</button>
+        <button type="submit" class="btn" id="btnExpSubmit">+ Add expense</button>
+      </div>
+    </form>
+  </div>
+
+  <div class="card">
+    <div class="lbl">Recurring monthly</div>
+    <div class="muted" style="margin-top:6px">Fixed costs like rent, Claude Pro, Amazon Prime — counted automatically every month.</div>
+    <form id="recForm" style="margin-top:12px">
+      <div class="fields">
+        <div><label>Name</label><input type="text" id="rName" placeholder="e.g. Claude Pro"></div>
+        <div><label>Amount (DKK)</label><input type="number" id="rAmt" step="0.01" min="0"></div>
+        <div><label>Category</label><select id="rCat"></select></div>
+      </div>
+      <div class="formfoot">
+        <button type="button" class="linkbtn hidden" id="btnCancelRecEdit">cancel</button>
+        <button type="submit" class="btn" id="btnRecSubmit">+ Add recurring</button>
+      </div>
+    </form>
+    <div id="recList" style="margin-top:12px"></div>
+  </div>
+
+  <div class="card">
+    <div class="mhead">
+      <div class="lbl">Transactions</div>
+      <div class="mnav">
+        <button id="bPrev">←</button>
+        <span class="cur" id="bCur"></span>
+        <button id="bNext">→</button>
+      </div>
+    </div>
+    <div id="expList"></div>
+  </div>
+
+  <div class="card">
+    <div class="mhead" style="margin-bottom:0">
+      <div class="lbl">AI analysis</div>
+      <button class="btn" id="btnAI" style="font-size:12px;padding:7px 14px">✨ Analyze my finances</button>
+    </div>
+    <div class="muted" style="margin-top:8px">Looks at income, spending and goals — and gives it to you straight.</div>
+    <div class="aiout hidden" id="aiOut"></div>
+  </div>
+</div>
+
+<!-- ============ INVEST ============ -->
+<div id="page-invest" class="hidden">
+  <div class="card hero" id="invHero"></div>
+
+  <div class="invrow">
+  <div class="card">
+    <div class="lbl">Add position</div>
+    <div class="searchwrap" style="margin-top:12px">
+      <label>Search stock / ETF</label>
+      <input type="text" id="tSearch" placeholder="Start typing — e.g. Novo, Apple, S&P 500…" autocomplete="off">
+      <div class="srchdrop hidden" id="srchDrop"></div>
+    </div>
+    <div id="selWrap" class="hidden" style="margin-top:10px"></div>
+    <form id="holdForm" style="margin-top:10px">
+      <div class="fields">
+        <div><label>Account</label><select id="hAcc"></select></div>
+        <div><label>Quantity</label><input type="number" id="hQty" step="0.0001" min="0" placeholder="shares"></div>
+        <div><label id="hBuyLabel">Buy price</label><input type="number" id="hBuy" step="0.01" min="0" placeholder="per share"></div>
+      </div>
+      <div class="formfoot">
+        <button type="button" class="linkbtn hidden" id="btnCancelHoldEdit">cancel</button>
+        <button type="submit" class="btn" id="btnHoldSubmit">+ Add position</button>
+      </div>
+    </form>
+    <div class="muted">Buying the same stock again in the same account adds a lot to the existing position.</div>
+    <div class="muted" id="invStatus"></div>
+    <div class="note hidden" id="liveWarn" style="margin-top:10px;margin-bottom:0">⚠️ <b>No live data connection.</b> This page is open outside the Claude app. Either open the tracker from the <b>Artifacts panel in Claude</b>, or add your <b>FMP API key</b> in ⚙ Settings to get live prices right here in the browser (AI analysis stays Claude-only). Note: data is stored separately per copy — use Export/Import in Settings to move it.</div>
+  </div>
+
+  <div class="card">
+    <div class="lbl">Sector allocation</div>
+    <div class="piebox" id="pieBox" style="height:270px"><canvas id="pieChart"></canvas></div>
+  </div>
+  </div><!-- /invrow -->
+
+  <div class="card">
+    <div class="updrow" style="margin-top:0">
+      <div class="lbl">Portfolio</div>
+      <span style="display:flex;align-items:center;gap:10px">
+        <span class="muted" id="pricesUpdated"></span>
+        <button class="btn" id="btnRefresh" style="font-size:12px;padding:6px 12px">↻ Refresh prices</button>
+      </span>
+    </div>
+    <div id="holdList" style="margin-top:12px"></div>
+  </div>
+
+  <div class="card hidden" id="salesCard">
+    <div class="lbl">Sold positions</div>
+    <div class="muted" style="margin-top:6px">Realized gains and losses from closed lots.</div>
+    <div id="salesList" style="margin-top:12px"></div>
+  </div>
+
+  <div class="invrow">
+  <div class="card">
+    <div class="lbl">Cash & savings</div>
+    <div class="muted" style="margin-top:6px">Your actual cash — bank accounts, savings, cash on hand. Counted in your total up top.</div>
+    <form id="cashForm" style="margin-top:12px">
+      <div class="fields">
+        <div><label>Account</label><input type="text" id="cName" placeholder="e.g. Main account"></div>
+        <div><label>Amount (DKK)</label><input type="number" id="cAmt" step="0.01" min="0"></div>
+      </div>
+      <div class="formfoot">
+        <button type="button" class="linkbtn hidden" id="btnCancelCashEdit">cancel</button>
+        <button type="submit" class="btn" id="btnCashSubmit">+ Add account</button>
+      </div>
+    </form>
+    <div id="cashList" style="margin-top:14px"></div>
+  </div>
+
+  <div class="card">
+    <div class="lbl">Net worth over time</div>
+    <div class="chartbox" id="nwBox" style="margin-top:10px;height:240px"><canvas id="nwChart"></canvas></div>
+  </div>
+  </div><!-- /invrow -->
+
+  <div class="card">
+    <div class="mhead" style="margin-bottom:0">
+      <div class="lbl">AI portfolio review</div>
+      <button class="btn" id="btnAIInv" style="font-size:12px;padding:7px 14px">✨ Review my portfolio</button>
+    </div>
+    <div class="muted" style="margin-top:8px">Checks diversification, sector and currency concentration, position sizing and your cash ratio.</div>
+    <div class="aiout hidden" id="aiOutInv"></div>
+  </div>
+</div>
+
+<div class="overlay hidden" id="settingsOverlay">
+  <div class="modal">
+    <div class="modalhead"><h2>Settings</h2><button class="close" id="btnClose">×</button></div>
+    <div class="settings-grid" id="settingsGrid"></div>
+    <div class="note">Update <b>frikort remaining</b> after each payslip — it's shared across all your employers.</div>
+    <button class="btn" id="btnExport" style="font-size:12px;padding:7px 12px">Export data</button>
+    <input type="file" id="importFile" accept=".json" style="width:auto;display:inline-block;margin-left:8px">
+  </div>
+</div>
+
+<script>
+// ================= STORAGE =================
+const S_KEY = 'lontracker_settings_v1', SH_KEY = 'lontracker_shifts_v1', T_KEY = 'lontracker_theme';
+const EX_KEY = 'lontracker_expenses_v1', RE_KEY = 'lontracker_recurring_v1';
+const HO_KEY = 'lontracker_holdings_v1', GO_KEY = 'lontracker_goals_v1', TAB_KEY = 'lontracker_tab', FX_KEY = 'lontracker_fx_v1';
+const DEFAULTS = {
+  soWage: 125, soPensionPct: 0,
+  rateUV: 256.81, rateIkkeUV: 174.58,
+  amPct: 8, taxPct: 37, frikortRest: 13660, frikortLimit: 59001, fpPct: 12.5,
+  modulLen: 1, modulWork: 0.75, ytdGross: 44000, ytdHours: 203,
+  accNames: ['Saxo', 'Gave', 'Aktiekøb', 'Aktiespare', 'Aldersopsparing']
+};
+let settings = { ...DEFAULTS, ...(JSON.parse(localStorage.getItem(S_KEY) || '{}')) };
+if (settings.frikortRest === 34296 || settings.frikortRest === 18750) settings.frikortRest = 13660;
+if (!settings.modulLen || settings.modulLen === 1.5) settings.modulLen = 1;
+if (!settings.frikortLimit || settings.frikortLimit === 51600 || settings.frikortLimit === 54100) settings.frikortLimit = 59001;
+if (!settings.modulWork) settings.modulWork = 0.75;
+if (!settings.ytdGross) settings.ytdGross = 44000;
+if (!settings.ytdHours) settings.ytdHours = 203;
+let shifts = JSON.parse(localStorage.getItem(SH_KEY) || '[]');
+let expenses = JSON.parse(localStorage.getItem(EX_KEY) || '[]');
+let recurring = JSON.parse(localStorage.getItem(RE_KEY) || '[]');
+let holdings = (JSON.parse(localStorage.getItem(HO_KEY) || '[]')).filter(h => h.symbol); // drop old-format entries
+let goals = JSON.parse(localStorage.getItem(GO_KEY) || '[]'); // legacy, no longer shown
+const CA_KEY = 'lontracker_cash_v1';
+let cash = JSON.parse(localStorage.getItem(CA_KEY) || '[]');
+const SALES_KEY = 'lontracker_sales_v1';
+let sales = JSON.parse(localStorage.getItem(SALES_KEY) || '[]');
+let fxCache = JSON.parse(localStorage.getItem(FX_KEY) || '{}'); // {USD:{rate,ts}}
+const save = (k, v) => localStorage.setItem(k, JSON.stringify(v));
+const saveSettings = () => save(S_KEY, settings);
+const saveShifts = () => save(SH_KEY, shifts);
+saveSettings();
+
+const CATS = [
+  ['housing', '🏠 Housing'], ['food', '🍕 Food & groceries'], ['transport', '🚇 Transport'],
+  ['going-out', '🍻 Going out'], ['subs', '📱 Subscriptions'], ['shopping', '👕 Shopping'], ['other', '💸 Other']
+];
+const CATNAME = Object.fromEntries(CATS);
+const AV = 'mcp__0710c9ba-14a1-4578-9650-f0a135965121__';
+const FMP = 'mcp__3c28f742-1ea4-44b7-9f0a-18be08314bd3__';
+const FX_FALLBACK = { USD: 6.57, EUR: 7.46, GBP: 8.6, SEK: 0.68, NOK: 0.64, CHF: 8.2, CAD: 4.8, JPY: 0.045, DKK: 1 };
+
+// ================= THEME & TABS =================
+function applyTheme() {
+  const dark = localStorage.getItem(T_KEY) === 'dark';
+  document.body.classList.toggle('dark', dark);
+  document.getElementById('btnTheme').textContent = dark ? '☀️ Light' : '🌙 Dark';
+}
+document.getElementById('btnTheme').onclick = () => {
+  localStorage.setItem(T_KEY, document.body.classList.contains('dark') ? 'light' : 'dark');
+  applyTheme(); renderChart(); renderPie(); renderNW();
+};
+let curPage = localStorage.getItem(TAB_KEY) || 'lon';
+function showPage(p) {
+  curPage = p; localStorage.setItem(TAB_KEY, p);
+  ['lon', 'budget', 'invest'].forEach(x => document.getElementById('page-' + x).classList.toggle('hidden', x !== p));
+  document.querySelectorAll('.tabbtn').forEach(b => b.classList.toggle('on', b.dataset.page === p));
+  if (p === 'lon') renderChart();
+  if (p === 'invest') { renderPie(); if (typeof renderNW === 'function') renderNW(); if (typeof autoRefresh === 'function') autoRefresh(); }
+}
+document.querySelectorAll('.tabbtn').forEach(b => b.onclick = () => showPage(b.dataset.page));
+
+// ================= HELPERS =================
+const fmt = n => n.toLocaleString('da-DK', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' DKK';
+const fmt0 = n => Math.round(n).toLocaleString('da-DK') + ' DKK';
+const fmtH = n => n.toLocaleString('da-DK', { maximumFractionDigits: 2 }) + ' h';
+const MD = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+const MDF = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+const dstr = d => d.getDate() + ' ' + MD[d.getMonth()];
+const dstrF = d => d.getDate() + ' ' + MDF[d.getMonth()] + ' ' + d.getFullYear();
+const iso = d => d.toISOString().slice(0, 10);
+function lastWeekday(y, m) {
+  let d = new Date(y, m + 1, 0);
+  while (d.getDay() === 0 || d.getDay() === 6) d.setDate(d.getDate() - 1);
+  return d;
+}
+function periodForPayMonth(y, m, startDay) {
+  return { start: new Date(y, m - 1, startDay), end: new Date(y, m, startDay - 1), payday: lastWeekday(y, m) };
+}
+function inPeriod(dateStr, p) {
+  const d = new Date(dateStr + 'T12:00:00');
+  return d >= new Date(p.start.getFullYear(), p.start.getMonth(), p.start.getDate()) &&
+         d <= new Date(p.end.getFullYear(), p.end.getMonth(), p.end.getDate(), 23, 59);
+}
+const inMonth = (dateStr, y, m) => { const d = new Date(dateStr + 'T12:00:00'); return d.getFullYear() === y && d.getMonth() === m; };
+const atpTier = h => h < 39 ? 0 : h < 78 ? 33 : h < 117 ? 66 : 99;
+const rateOf = s => s.job === 'so' ? settings.soWage : s.job === 'andet' ? (s.customRate || 0) : (s.rate === 'uv' ? settings.rateUV : settings.rateIkkeUV);
+const workedOf = s => s.job === 'skole' ? (s.hours / settings.modulLen) * settings.modulWork : s.hours;
+const JOBNAME = { so: 'Søpavillonen', skole: 'School', andet: 'Other' };
+const JOBDOT = { so: 'd-so', skole: 'd-skole', andet: 'd-andet' };
+const newId = () => Date.now() + '' + Math.random().toString(36).slice(2, 6);
+function fillAccSelect() {
+  const sel = document.getElementById('hAcc');
+  if (sel) sel.innerHTML = settings.accNames.map(a => `<option>${a}</option>`).join('');
+}
+// normalizes data from any older version of the tracker (runs at load and after import)
+function normalizeData() {
+  if (!settings.accNames || !Array.isArray(settings.accNames) || settings.accNames.length !== 5) {
+    settings.accNames = [...DEFAULTS.accNames];
+  }
+  if (!settings.modulLen || settings.modulLen === 1.5) settings.modulLen = 1;
+  if (!settings.modulWork) settings.modulWork = 0.75;
+  // flat holdings → positions with lots (grouped by symbol, default first account)
+  if (holdings.length && holdings[0] && !holdings[0].lots) {
+    const grouped = {};
+    holdings.forEach(h => {
+      const key = h.symbol + '|' + settings.accNames[0];
+      if (!grouped[key]) grouped[key] = { id: h.id, symbol: h.symbol, name: h.name, currency: h.currency, sector: h.sector, account: settings.accNames[0], price: h.price || 0, chg: h.chg || 0, fx: h.fx || 1, updated: h.updated || null, lots: [] };
+      grouped[key].lots.push({ id: newId(), qty: h.qty, buy: h.buy || 0, date: null });
+    });
+    holdings = Object.values(grouped);
+    save(HO_KEY, holdings);
+  }
+}
+normalizeData();
+const coworkReady = () => !!(window.cowork && typeof window.cowork.callMcpTool === 'function');
+async function callTool(fullName, args) {
+  if (!coworkReady()) throw new Error('No connection to Claude — open this tracker from the Artifacts panel inside the Claude app');
+  const r = await window.cowork.callMcpTool(fullName, args);
+  const rawText = r && r.content && r.content[0] && r.content[0].text;
+  if (r && r.isError) throw new Error((rawText || 'API error').slice(0, 160));
+  let d = r ? r.structuredContent : undefined;
+  if (d === undefined || d === null) {
+    try { d = JSON.parse(rawText); } catch { d = rawText; }
+  }
+  // some servers wrap arrays: {result:[...]} / {data:[...]} / {content:[...]}
+  if (d && !Array.isArray(d) && typeof d === 'object') {
+    if (Array.isArray(d.result)) d = d.result;
+    else if (Array.isArray(d.data)) d = d.data;
+  }
+  return d;
+}
+const mcp = (tool, args) => callTool(AV + tool, args);   // Alpha Vantage (FX + fallback, Claude only)
+// build a direct financialmodelingprep.com URL for the endpoints this tracker uses, or null if unsupported
+function fmpUrl(tool, args) {
+  const base = 'https://financialmodelingprep.com/stable/';
+  if (tool === 'search' && args.endpoint === 'search-name') return base + 'search-name?query=' + encodeURIComponent(args.query) + '&limit=' + (args.limit || 8);
+  if (tool === 'company' && args.endpoint === 'profile-symbol') return base + 'profile?symbol=' + encodeURIComponent(args.symbol);
+  if (tool === 'quote' && args.endpoint === 'quote') return base + 'quote?symbol=' + encodeURIComponent(args.symbol);
+  if (tool === 'chart' && args.endpoint === 'historical-price-eod-light') return base + 'historical-price-eod/light?symbol=' + encodeURIComponent(args.symbol) + (args.from_date ? '&from=' + args.from_date : '') + (args.to_date ? '&to=' + args.to_date : '');
+  return null;
+}
+async function fmpDirect(tool, args) {
+  const url = fmpUrl(tool, args);
+  if (!url) return undefined; // endpoint not supported for direct fetch
+  const res = await fetch(url + '&apikey=' + encodeURIComponent(settings.fmpKey));
+  if (!res.ok) throw new Error('FMP error ' + res.status + (res.status === 401 || res.status === 403 ? ' — check your API key in Settings' : res.status === 429 ? ' — rate limit reached on your API key, try again shortly' : ''));
+  return await res.json();
+}
+// FMP: prefers the user's own API key (dedicated quota, works in any browser) when set,
+// falls back to the Claude bridge when available, and falls back the other way on failure.
+async function fmp(tool, args) {
+  let keyErr = null, bridgeErr = null;
+  if (settings.fmpKey) {
+    try {
+      const d = await fmpDirect(tool, args);
+      if (d !== undefined) return d;
+    } catch (err) { keyErr = err; }
+  }
+  if (coworkReady()) {
+    try { return await callTool(FMP + tool, args); }
+    catch (err) { bridgeErr = err; }
+  }
+  if (keyErr) throw keyErr;
+  if (bridgeErr) throw bridgeErr;
+  throw new Error('No connection to Claude — open from the Artifacts panel, or add your FMP API key in Settings for browser use');
+}
+// broader sector buckets for the allocation chart (keeps small/overlapping GICS sectors from cluttering the pie)
+const SECTOR_GROUPS = {
+  'Consumer Cyclical': 'Consumer', 'Consumer Defensive': 'Consumer',
+  'Industrials': 'Industrials & Materials', 'Basic Materials': 'Industrials & Materials',
+  'Energy': 'Energy & Utilities', 'Utilities': 'Energy & Utilities',
+  'Financial Services': 'Financials'
+};
+const sectorGroup = s => SECTOR_GROUPS[s] || s || 'Other';
+// one FMP profile call = price, change%, sector, currency
+async function fetchProfile(symbol) {
+  const arr = await fmp('company', { endpoint: 'profile-symbol', symbol });
+  const p = Array.isArray(arr) ? arr[0] : arr;
+  if (!p || p.price === undefined) throw new Error('No profile data');
+  return {
+    price: p.price, chg: p.changePercentage || 0,
+    currency: p.currency, name: p.companyName,
+    sector: p.isEtf || p.isFund ? 'ETF / Fund' : (p.sector || 'Other')
+  };
+}
+// lighter fallback when the full profile call fails — just price + change%, no sector/currency
+async function fetchQuote(symbol) {
+  const arr = await fmp('quote', { endpoint: 'quote', symbol });
+  const q = Array.isArray(arr) ? arr[0] : arr;
+  if (!q || q.price === undefined) throw new Error('No quote data');
+  return { price: q.price, chg: q.changePercentage || 0 };
+}
+// ---- optional: live prices from a "Publish to web" Google Sheet CSV (free, no rate limit) ----
+// used as the primary price source in doRefresh; FMP is only called for symbols missing from the sheet
+function parseCsv(text) {
+  const rows = []; let row = []; let field = ''; let inQuotes = false;
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i];
+    if (inQuotes) {
+      if (c === '"') { if (text[i + 1] === '"') { field += '"'; i++; } else { inQuotes = false; } }
+      else field += c;
+    } else if (c === '"') inQuotes = true;
+    else if (c === ',') { row.push(field); field = ''; }
+    else if (c === '\n' || c === '\r') {
+      if (c === '\r' && text[i + 1] === '\n') i++;
+      row.push(field); field = ''; rows.push(row); row = [];
+    } else field += c;
+  }
+  if (field.length || row.length) { row.push(field); rows.push(row); }
+  return rows.filter(r => r.length > 1 || (r[0] || '').trim());
+}
+// "Publish to web" CSV links don't send CORS headers, so fetch() from a file:// page gets blocked
+// with a bare "Failed to fetch". The /gviz/tq endpoint is built for cross-origin JS access and does
+// send them — so rewrite whatever link is pasted (edit link, share link, or already a gviz link)
+// into that form. Only a genuine Publish-to-web link (/d/e/{id}/pub) can't be rewritten this way,
+// since it uses a different, non-reversible ID scheme.
+function normalizeSheetUrl(url) {
+  if (!url) return url;
+  if (/\/gviz\/tq/.test(url) && /out:csv/.test(url)) return url;
+  const idMatch = url.match(/\/spreadsheets\/d\/(?!e\/)([a-zA-Z0-9-_]+)/);
+  if (!idMatch) return url; // can't rewrite (e.g. a Publish-to-web /d/e/... link) — try as-is
+  const gidMatch = url.match(/[#?&]gid=([0-9]+)/);
+  return `https://docs.google.com/spreadsheets/d/${idMatch[1]}/gviz/tq?tqx=out:csv&gid=${gidMatch ? gidMatch[1] : '0'}`;
+}
+let sheetCache = null; // {fetched, prices: {SYMBOL: {price, chg}}}
+let sheetDebug = null; // last diagnostic: {ok, error} | {ok:true, rowCount, headerOk, matched, headerSample}
+async function fetchSheetPrices(force) {
+  if (!settings.sheetCsvUrl) { sheetDebug = null; return {}; }
+  if (!force && sheetCache && Date.now() - sheetCache.fetched < 10 * 60 * 1000) return sheetCache.prices;
+  const fetchUrl = normalizeSheetUrl(settings.sheetCsvUrl);
+  let text;
+  try {
+    const res = await fetch(fetchUrl, { cache: 'no-store' });
+    if (!res.ok) throw new Error('HTTP ' + res.status + ' fetching the sheet URL');
+    text = await res.text();
+  } catch (err) {
+    const isPublishLink = /\/spreadsheets\/d\/e\//.test(settings.sheetCsvUrl);
+    let hint;
+    if (location.protocol === 'file:') {
+      hint = ' — this page is opened as a local file (file://), and Google blocks that kind of request outright regardless of sharing settings. Serve the file over a local address instead: run "python3 -m http.server 8765" in the folder this file is in, then open http://localhost:8765/salary-tracker.html and try again.';
+    } else if (isPublishLink) {
+      hint = ' — this looks like a "Publish to web" link, which Google blocks JavaScript from reading directly (CORS). Use the normal Share link instead: click Share (top right, not File → Publish) → General access → "Anyone with the link" → Copy link → paste that here.';
+    } else {
+      hint = ' — double-check General access on the sheet is "Anyone with the link", and that the link\'s spreadsheet ID is correct.';
+    }
+    sheetDebug = { ok: false, error: ((err && err.message) || String(err)) + hint, triedUrl: fetchUrl };
+    throw new Error(sheetDebug.error);
+  }
+  if (text.charCodeAt(0) === 0xFEFF) text = text.slice(1); // strip BOM some CSV exports add
+  // if the URL returned an HTML page instead of CSV (e.g. "Publish to web" left on "Web page" format,
+  // or a normal /edit share link was pasted instead of the CSV export link), fail clearly instead of silently
+  if (/^\s*<(!doctype|html)/i.test(text)) {
+    sheetDebug = { ok: false, error: 'The URL returned a web page, not CSV — in Publish to web, the format dropdown must say "Comma-separated values (.csv)", not "Web page".' };
+    throw new Error(sheetDebug.error);
+  }
+  const rows = parseCsv(text);
+  const prices = {};
+  let headerOk = false, matched = 0, headerSample = '';
+  if (rows.length) {
+    const header = rows[0].map(h => (h || '').trim().toLowerCase());
+    headerSample = rows[0].join(' | ');
+    const findCol = (...names) => { for (const n of names) { const i = header.indexOf(n); if (i > -1) return i; } return -1; };
+    const symIdx = findCol('symbol');
+    const priceIdx = findCol('live price (native)', 'live price', 'price');
+    const chgIdx = findCol('change % today', 'change%', 'change %');
+    headerOk = symIdx > -1 && priceIdx > -1;
+    if (headerOk) {
+      for (let i = 1; i < rows.length; i++) {
+        const r = rows[i];
+        const sym = (r[symIdx] || '').trim();
+        if (!sym || sym in prices) continue;
+        const priceNum = parseFloat((r[priceIdx] || '').replace(/[^0-9.\-]/g, ''));
+        if (isNaN(priceNum)) continue; // blank / #N/A / error cell -> caller falls back to the API
+        const chgNum = chgIdx > -1 ? parseFloat((r[chgIdx] || '').replace(/[^0-9.\-]/g, '')) : NaN;
+        prices[sym] = { price: priceNum, chg: isNaN(chgNum) ? 0 : chgNum };
+        matched++;
+      }
+    }
+  }
+  sheetDebug = { ok: true, rowCount: rows.length, headerOk, matched, headerSample, triedUrl: fetchUrl };
+  sheetCache = { fetched: Date.now(), prices };
+  return prices;
+}
+// ---- historical prices for the YTD/6M/1Y/3Y performance view (fetched lazily, cached per symbol) ----
+const PERF_KEY = 'lontracker_perfcache_v1';
+let perfCache = JSON.parse(localStorage.getItem(PERF_KEY) || '{}');
+async function fetchHistory(symbol) {
+  const c = perfCache[symbol];
+  if (c && c.series && c.series.length && Date.now() - c.fetched < 20 * 3600 * 1000) return c.series;
+  const from = new Date(); from.setFullYear(from.getFullYear() - 3);
+  const raw = await fmp('chart', { endpoint: 'historical-price-eod-light', symbol, from_date: iso(from), to_date: iso(new Date()) });
+  const arr = Array.isArray(raw) ? raw : (raw && Array.isArray(raw.historical) ? raw.historical : []);
+  const series = arr
+    .map(p => ({ date: (p.date || '').slice(0, 10), close: p.price !== undefined ? p.price : p.close }))
+    .filter(p => p.date && typeof p.close === 'number')
+    .sort((a, b) => a.date.localeCompare(b.date));
+  perfCache[symbol] = { fetched: Date.now(), series };
+  save(PERF_KEY, perfCache);
+  return series;
+}
+function closestClose(series, targetIso) {
+  let best = null;
+  for (const pt of series) { if (pt.date <= targetIso) best = pt; else break; }
+  return best;
+}
+async function computePerf(x) {
+  const series = await fetchHistory(x.symbol);
+  if (!series.length) throw new Error('no historical data for ' + x.symbol);
+  const now = new Date();
+  const refs = {
+    ytd: iso(new Date(now.getFullYear(), 0, 1)),
+    m6: iso(new Date(now.getFullYear(), now.getMonth() - 6, now.getDate())),
+    y1: iso(new Date(now.getFullYear() - 1, now.getMonth(), now.getDate())),
+    y3: iso(new Date(now.getFullYear() - 3, now.getMonth(), now.getDate()))
+  };
+  const cur = x.price || series[series.length - 1].close;
+  const pct = key => {
+    const pt = closestClose(series, refs[key]);
+    return (pt && pt.close) ? (cur - pt.close) / pt.close * 100 : null;
+  };
+  return { ytd: pct('ytd'), m6: pct('m6'), y1: pct('y1'), y3: pct('y3') };
+}
+let perfResults = {}; // { [holdingId]: {loading} | {error} | {data} }
+async function loadPerf(x) {
+  perfResults[x.id] = { loading: true };
+  renderInvest();
+  try { perfResults[x.id] = { data: await computePerf(x) }; }
+  catch (err) { perfResults[x.id] = { error: err.message || 'failed to load' }; }
+  renderInvest();
+}
+// "since purchase" needs no API call (uses cost/current price already on hand); YTD/6M/1Y/3Y come from perfResults
+function perfBlockHtml(x, cost, gp) {
+  const perf = perfResults[x.id];
+  const earliest = x.lots.reduce((a, l) => (l.date && (!a || l.date < a)) ? l.date : a, null);
+  let html = '';
+  if (earliest) {
+    html += `<div class="lotline" style="border-bottom:1px solid var(--line)">
+      <span class="muted">Since ${dstr(new Date(earliest + 'T12:00:00'))} (avg buy)</span>
+      <span style="font-weight:650;color:${cost > 0 ? (gp >= 0 ? 'var(--c-skole)' : 'var(--red)') : 'var(--mut)'}">${cost > 0 ? ((gp >= 0 ? '+' : '') + gp.toFixed(1) + '%') : '—'}</span>
+    </div>`;
+  }
+  if (!perf || perf.loading) {
+    html += `<div class="lotline"><span class="muted">${perf ? 'Loading YTD / 6M / 1Y / 3Y…' : ''}</span><span></span></div>`;
+  } else if (perf.error) {
+    html += `<div class="lotline"><span class="muted">Performance unavailable — ${perf.error}</span><span></span></div>`;
+  } else if (perf.data) {
+    const fmtPct = v => (v === null || v === undefined) ? '—' : (v >= 0 ? '+' : '') + v.toFixed(1) + '%';
+    const col = v => (v === null || v === undefined) ? 'var(--mut)' : (v >= 0 ? 'var(--c-skole)' : 'var(--red)');
+    html += `<div class="lotline">
+      <span class="muted">YTD · 6M · 1Y · 3Y</span>
+      <span style="display:flex;gap:12px;font-weight:650">
+        <span style="color:${col(perf.data.ytd)}">${fmtPct(perf.data.ytd)}</span>
+        <span style="color:${col(perf.data.m6)}">${fmtPct(perf.data.m6)}</span>
+        <span style="color:${col(perf.data.y1)}">${fmtPct(perf.data.y1)}</span>
+        <span style="color:${col(perf.data.y3)}">${fmtPct(perf.data.y3)}</span>
+      </span>
+    </div>`;
+  }
+  return html;
+}
+async function fxRate(ccy) {
+  if (ccy === 'DKK') return 1;
+  const c = fxCache[ccy];
+  if (c && Date.now() - c.ts < 12 * 3600 * 1000) return c.rate; // 12h cache
+  try {
+    const d = await mcp('CURRENCY_EXCHANGE_RATE', { from_currency: ccy, to_currency: 'DKK', datatype: 'json' });
+    const rate = parseFloat(d['Realtime Currency Exchange Rate']['5. Exchange Rate']);
+    fxCache[ccy] = { rate, ts: Date.now() };
+    save(FX_KEY, fxCache);
+    return rate;
+  } catch { return (fxCache[ccy] && fxCache[ccy].rate) || FX_FALLBACK[ccy] || 1; }
+}
+
+// ================= PAYROLL (verified against payslips) =================
+function calcSo(list) {
+  const hours = list.reduce((a, s) => a + s.hours, 0);
+  const gross = list.reduce((a, s) => a + s.hours * settings.soWage, 0);
+  const pension = gross * settings.soPensionPct / 100;
+  const atp = atpTier(hours);
+  const fpBrutto = (gross - pension) * settings.fpPct / 100;
+  const fpNetto = fpBrutto - Math.round(fpBrutto * settings.amPct / 100);
+  const am = Math.round((gross - pension - atp) * settings.amPct / 100);
+  const aIndkomst = (gross - pension - atp - am) + fpNetto;
+  const netFoerSkat = gross - pension - am - atp;
+  return { hours, gross, pension, fpBrutto, fpNetto, am, atp, aIndkomst, netFoerSkat };
+}
+function calcSkole(list) {
+  const hUV = list.filter(s => s.rate === 'uv').reduce((a, s) => a + s.hours, 0);
+  const hIkke = list.filter(s => s.rate !== 'uv').reduce((a, s) => a + s.hours, 0);
+  const hours = hUV + hIkke;
+  const gross = hUV * settings.rateUV + hIkke * settings.rateIkkeUV;
+  const fpBrutto = gross * settings.fpPct / 100;
+  const atp = atpTier(hours);
+  const amb = gross + fpBrutto - atp;
+  const am = Math.round(amb * settings.amPct / 100);
+  const fpNetto = fpBrutto - Math.round(fpBrutto * settings.amPct / 100);
+  const aIndkomst = amb - am;
+  const netFoerSkat = gross + fpBrutto - fpNetto - am - atp;
+  return { hours, hUV, hIkke, gross, fpBrutto, fpNetto, am, atp, aIndkomst, netFoerSkat };
+}
+function payMonths() {
+  const today = new Date();
+  let y = today.getFullYear(), m = today.getMonth();
+  if (lastWeekday(y, m) < new Date(y, m, today.getDate())) { m++; if (m > 11) { m = 0; y++; } }
+  const next = m === 11 ? { y: y + 1, m: 0 } : { y, m: m + 1 };
+  return [{ y, m }, { y: next.y, m: next.m }];
+}
+function payCalc(pm, frikortLeft) {
+  const pSo = periodForPayMonth(pm.y, pm.m, 16);
+  const pSk = periodForPayMonth(pm.y, pm.m, 20);
+  const cSo = calcSo(shifts.filter(s => s.job === 'so' && inPeriod(s.date, pSo)));
+  const cSk = calcSkole(shifts.filter(s => s.job === 'skole' && inPeriod(s.date, pSk)));
+  const andetList = shifts.filter(s => s.job === 'andet' && inMonth(s.date, pm.y, pm.m));
+  const andetSum = andetList.reduce((a, s) => a + s.hours * (s.customRate || 0), 0);
+  const andetHours = andetList.reduce((a, s) => a + s.hours, 0);
+  const totalA = cSo.aIndkomst + cSk.aIndkomst;
+  const skat = Math.round(Math.max(0, totalA - frikortLeft) * settings.taxPct / 100);
+  const total = cSo.netFoerSkat + cSk.netFoerSkat + andetSum - skat;
+  return { pSo, pSk, cSo, cSk, andetSum, andetHours, totalA, skat, total, frikortAfter: Math.max(0, frikortLeft - totalA) };
+}
+
+// ================= SALARY RENDER =================
+let payState = null;
+function renderHero() {
+  const [pm1, pm2] = payMonths();
+  const r1 = payCalc(pm1, settings.frikortRest);
+  const r2 = payCalc(pm2, r1.frikortAfter);
+  payState = { r1, r2 };
+  const chips = [['so', r1.cSo.netFoerSkat], ['skole', r1.cSk.netFoerSkat], ['andet', r1.andetSum]].filter(([, v]) => v > 0);
+  const chipHtml = (chips.length ? chips : [['so', 0], ['skole', 0]])
+    .map(([j, v]) => `<span class="chip"><span class="dot ${JOBDOT[j]}"></span>${JOBNAME[j]} ${fmt0(v)}</span>`).join('');
+  document.getElementById('heroCard').innerHTML = `
+    <div class="lbl">This month's payout</div>
+    <div class="big">${fmt0(r1.total)}</div>
+    <div class="sub">expected ${dstrF(r1.pSo.payday)}${r1.skat > 0 ? ' · after ' + fmt0(r1.skat) + ' tax' : ' · tax-free (frikort)'}</div>
+    <div class="chips">${chipHtml}</div>`;
+}
+function renderYearStats() {
+  const y = new Date().getFullYear();
+  const yearShifts = shifts.filter(s => new Date(s.date).getFullYear() === y);
+  const gross = yearShifts.reduce((a, s) => a + s.hours * rateOf(s), 0) + settings.ytdGross;
+  const hours = yearShifts.reduce((a, s) => a + workedOf(s), 0) + settings.ytdHours;
+  const months = new Date().getMonth() + 1;
+  document.getElementById('yearStats').innerHTML = `
+    <div class="stat"><div class="lbl">Earned this year</div><div class="v serif">${fmt0(gross)}</div><div class="s">all jobs · ${y}</div></div>
+    <div class="stat"><div class="lbl">Total hours</div><div class="v serif">${fmtH(hours)}</div><div class="s">${hours > 0 ? Math.round(gross / hours) + ' DKK/h avg' : '—'}</div></div>
+    <div class="stat"><div class="lbl">Avg per month</div><div class="v serif">${fmt0(gross / months)}</div><div class="s">over ${months} months</div></div>`;
+}
+function renderPayouts() {
+  const { r1, r2 } = payState;
+  const jobBlock = (job, gross, net, hrs) => gross > 0 ? `
+    <div class="jobhead"><span class="dot ${JOBDOT[job]}"></span>${JOBNAME[job]}</div>
+    <div class="prow"><span>Earned (${fmtH(hrs)})</span><span class="num">${fmt(gross)}</span></div>
+    <div class="prow"><span class="muted">Net payout</span><span class="num">${fmt(net)}</span></div>` : '';
+  document.getElementById('payoutCard').innerHTML = `
+    <div class="lbl">Payouts</div>
+    <div class="explain">School: period 20th–19th · Søpavillonen: 16th–15th · Other: calendar month · Paid last weekday of the month</div>
+    <div class="paydate">${dstrF(r1.pSo.payday)} <span class="tag">upcoming</span></div>
+    ${jobBlock('so', r1.cSo.gross, r1.cSo.netFoerSkat, r1.cSo.hours)}
+    ${jobBlock('skole', r1.cSk.gross, r1.cSk.netFoerSkat, r1.cSk.hours)}
+    ${jobBlock('andet', r1.andetSum, r1.andetSum, r1.andetHours)}
+    <div class="prow" style="margin-top:10px"><span>Tax</span><span class="num">${r1.skat > 0 ? '− ' + fmt(r1.skat) : '0 DKK (frikort)'}</span></div>
+    <div class="prow total"><span class="k">To account</span><span class="tilkonto">${fmt(r1.total)}</span></div>
+    <details><summary>Full breakdown</summary>
+      <div class="prow"><span>Sø · AM-bidrag</span><span class="num">− ${fmt(r1.cSo.am)}</span></div>
+      <div class="prow"><span>Sø · ATP</span><span class="num">− ${fmt(r1.cSo.atp)}</span></div>
+      ${settings.soPensionPct > 0 ? `<div class="prow"><span>Sø · Pension</span><span class="num">− ${fmt(r1.cSo.pension)}</span></div>` : ''}
+      <div class="prow"><span>Sø · Holiday pay → FerieKonto</span><span class="num">${fmt(r1.cSo.fpNetto)}</span></div>
+      <div class="prow"><span>School · UV ${fmtH(r1.cSk.hUV)} / non-UV ${fmtH(r1.cSk.hIkke)}</span><span class="num"></span></div>
+      <div class="prow"><span>School · AM-bidrag</span><span class="num">− ${fmt(r1.cSk.am)}</span></div>
+      <div class="prow"><span>School · ATP</span><span class="num">− ${fmt(r1.cSk.atp)}</span></div>
+      <div class="prow"><span>School · Holiday pay → FerieKonto</span><span class="num">${fmt(r1.cSk.fpNetto)}</span></div>
+      <div class="prow"><span>Total A-income (counts against frikort)</span><span class="num">${fmt(r1.totalA)}</span></div>
+    </details>
+    <div class="naeste-blk"><span class="muted">Next · ${dstrF(r2.pSo.payday)}</span><span class="amt">${fmt0(r2.total)}</span></div>`;
+}
+function renderFrikort() {
+  const limit = settings.frikortLimit;
+  const rest = payState ? payState.r2.frikortAfter : settings.frikortRest;
+  const used = Math.max(0, limit - rest);
+  const pct = limit > 0 ? Math.min(100, Math.round(used / limit * 100)) : 0;
+  document.getElementById('frikortCard').innerHTML = `
+    <div class="lbl">Frikort ${new Date().getFullYear()}</div>
+    <div class="fkrow" style="margin-top:10px"><span>Limit</span><span class="num">${fmt0(limit)}</span></div>
+    <div class="fkrow"><span>Used</span><span class="num">${fmt0(used)}</span></div>
+    <div class="fkbar"><i style="width:${pct}%"></i></div>
+    <div class="fkmeta"><span>${pct}% used</span><span>${fmt0(rest)} left</span></div>
+    <div class="fkbig">${fmt0(rest)}<small>left of frikort</small></div>`;
+}
+const FPC_KEY = 'lontracker_fpcollected_v1';
+let fpCollected = JSON.parse(localStorage.getItem(FPC_KEY) || '{"soB":0,"soN":0,"skB":0,"skN":0,"totalN":0,"last":null}');
+function renderFp() {
+  const cSo = calcSo(shifts.filter(s => s.job === 'so'));
+  const cSk = calcSkole(shifts.filter(s => s.job === 'skole'));
+  const soB = Math.max(0, cSo.fpBrutto - fpCollected.soB), soN = Math.max(0, cSo.fpNetto - fpCollected.soN);
+  const skB = Math.max(0, cSk.fpBrutto - fpCollected.skB), skN = Math.max(0, cSk.fpNetto - fpCollected.skN);
+  const totalN = soN + skN;
+  document.getElementById('fpCard').innerHTML = `
+    <div class="lbl">Holiday pay (feriepenge)</div>
+    <div class="fpgrid">
+      <div class="fpmini">
+        <div class="jobhead" style="margin-top:0"><span class="dot d-skole"></span>School</div>
+        <div class="prow"><span class="muted">Gross</span><span class="num">${fmt(skB)}</span></div>
+        <div class="prow"><span class="muted">Net</span><span class="num">${fmt(skN)}</span></div>
+      </div>
+      <div class="fpmini">
+        <div class="jobhead" style="margin-top:0"><span class="dot d-so"></span>Søpavillonen</div>
+        <div class="prow"><span class="muted">Gross</span><span class="num">${fmt(soB)}</span></div>
+        <div class="prow"><span class="muted">Net</span><span class="num">${fmt(soN)}</span></div>
+      </div>
+    </div>
+    <div class="fpbanner">
+      <span class="lbl" style="color:var(--green)">Saved up (net)</span>
+      <span style="display:flex;align-items:center;gap:12px">
+        <span class="amt">${fmt(totalN)}</span>
+        ${totalN > 0 ? '<button class="btn" id="btnFpCollect" style="font-size:11.5px;padding:6px 12px">✓ Collected</button>' : ''}
+      </span>
+    </div>
+    <div class="muted" style="margin-top:8px">Collected at FerieKonto — paid out when you request it.${fpCollected.last ? ' Last collected ' + dstrF(new Date(fpCollected.last)) + ' · ' + fmt0(fpCollected.totalN) + ' total.' : ''}</div>`;
+  const btn = document.getElementById('btnFpCollect');
+  if (btn) btn.onclick = () => {
+    if (!confirm('Mark ' + fmt0(totalN) + ' holiday pay as collected? The counter resets and starts building again from your future shifts.')) return;
+    fpCollected = {
+      soB: cSo.fpBrutto, soN: cSo.fpNetto,
+      skB: cSk.fpBrutto, skN: cSk.fpNetto,
+      totalN: (fpCollected.totalN || 0) + totalN,
+      last: Date.now()
+    };
+    save(FPC_KEY, fpCollected);
+    renderFp();
+  };
+}
+const now0 = new Date();
+let monthView = { y: now0.getFullYear(), m: now0.getMonth() };
+function renderMonthView() {
+  document.getElementById('mCur').textContent = MDF[monthView.m] + ' ' + monthView.y;
+  const list = shifts.filter(s => inMonth(s.date, monthView.y, monthView.m)).sort((a, b) => b.date.localeCompare(a.date));
+  const body = document.getElementById('monthBody');
+  if (list.length === 0) { body.innerHTML = '<div class="emptybox">No shifts this month</div>'; return; }
+  let h = '<table class="shiftlist"><tr><th>Date</th><th>Job</th><th>Time</th><th class="num">Hours</th><th class="num">Gross</th><th></th><th></th></tr>';
+  let totH = 0, totKr = 0;
+  list.forEach(s => {
+    const d = new Date(s.date + 'T12:00:00');
+    let tid;
+    if (s.job === 'so') tid = s.start ? s.start + '–' + s.end : '—';
+    else if (s.job === 'skole') {
+      const mod = +((s.hours / settings.modulLen).toFixed(1));
+      tid = mod + (mod === 1 ? ' module' : ' modules') + (s.rate === 'uv' ? '' : ' · non-UV');
+    } else tid = (s.customRate || 0).toLocaleString('da-DK') + ' DKK/h';
+    const kr = s.hours * rateOf(s);
+    const wh = workedOf(s);
+    totH += wh; totKr += kr;
+    h += `<tr><td>${dstr(d)}</td><td><span class="jobtag"><span class="dot ${JOBDOT[s.job]}"></span>${JOBNAME[s.job]}</span></td><td class="muted">${tid}</td><td class="num">${fmtH(wh)}</td><td class="num">${fmt0(kr)}</td><td class="muted">${s.note || ''}</td><td style="white-space:nowrap"><button class="icon edit" data-id="${s.id}" title="Edit">✎</button><button class="icon rm" data-id="${s.id}" title="Delete" style="color:#c0392b">×</button></td></tr>`;
+  });
+  h += '</table>';
+  h += `<div class="mtotal"><span>${list.length} shifts · ${fmtH(totH)}</span><span class="serif">${fmt0(totKr)}</span></div>`;
+  body.innerHTML = h;
+  body.querySelectorAll('.rm').forEach(b => b.onclick = () => {
+    shifts = shifts.filter(x => x.id !== b.dataset.id);
+    if (editingId === b.dataset.id) resetForm();
+    saveShifts(); renderAll();
+  });
+  body.querySelectorAll('.edit').forEach(b => b.onclick = () => startEdit(b.dataset.id));
+}
+document.getElementById('mPrev').onclick = () => { monthView.m--; if (monthView.m < 0) { monthView.m = 11; monthView.y--; } renderMonthView(); };
+document.getElementById('mNext').onclick = () => { monthView.m++; if (monthView.m > 11) { monthView.m = 0; monthView.y++; } renderMonthView(); };
+let chart = null;
+function renderChart() {
+  const box = document.getElementById('chartBox');
+  if (!box || curPage !== 'lon') return;
+  if (chart) { chart.destroy(); chart = null; }
+  if (shifts.length === 0) { box.classList.add('hidden'); return; }
+  box.classList.remove('hidden');
+  box.innerHTML = '<canvas id="hoursChart"></canvas>';
+  const canvas = document.getElementById('hoursChart');
+  const now = new Date();
+  const weeks = [];
+  const monday = new Date(now); monday.setDate(now.getDate() - ((now.getDay() + 6) % 7));
+  for (let i = 7; i >= 0; i--) { const ws = new Date(monday); ws.setDate(monday.getDate() - i * 7); weeks.push(ws); }
+  const sumWeek = (ws, job) => {
+    const we = new Date(ws); we.setDate(ws.getDate() + 7);
+    return shifts.filter(s => s.job === job && new Date(s.date + 'T12:00:00') >= ws && new Date(s.date + 'T12:00:00') < we)
+      .reduce((a, s) => a + workedOf(s), 0);
+  };
+  if (typeof Chart === 'undefined') { box.classList.add('hidden'); return; }
+  const mutCol = document.body.classList.contains('dark') ? '#8b8d80' : '#9a998f';
+  chart = new Chart(canvas, {
+    type: 'bar',
+    data: { labels: weeks.map(w => w.getDate() + '/' + (w.getMonth() + 1)),
+      datasets: [
+        { label: 'Søpavillonen', data: weeks.map(w => sumWeek(w, 'so')), backgroundColor: '#c0392b', stack: 'a', borderRadius: 3 },
+        { label: 'School', data: weeks.map(w => sumWeek(w, 'skole')), backgroundColor: '#1d8a5f', stack: 'a', borderRadius: 3 },
+        { label: 'Other', data: weeks.map(w => sumWeek(w, 'andet')), backgroundColor: '#2563eb', stack: 'a', borderRadius: 3 }
+      ]},
+    options: { responsive: true, maintainAspectRatio: false,
+      scales: { x: { stacked: true, grid: { display: false }, ticks: { color: mutCol } }, y: { stacked: true, border: { display: false }, ticks: { color: mutCol } } },
+      plugins: { legend: { position: 'bottom', labels: { usePointStyle: true, pointStyle: 'circle', boxWidth: 5, color: mutCol } } } }
+  });
+}
+
+// ================= SALARY FORM =================
+let curJob = 'so';
+function syncFormInputs() {
+  document.querySelectorAll('.jp').forEach(b => { b.className = 'jp' + (b.dataset.job === curJob ? ' sel-' + curJob : ''); });
+  document.getElementById('fRateWrap').classList.toggle('hidden', curJob !== 'skole');
+  document.getElementById('fHoursWrap').classList.toggle('hidden', curJob === 'so');
+  document.getElementById('fStartWrap').classList.toggle('hidden', curJob !== 'so');
+  document.getElementById('fEndWrap').classList.toggle('hidden', curJob !== 'so');
+  document.getElementById('fRateCustomWrap').classList.toggle('hidden', curJob !== 'andet');
+  document.getElementById('fHoursLabel').textContent = curJob === 'skole' ? 'Modules' : 'Hours';
+}
+document.querySelectorAll('.jp').forEach(b => b.onclick = () => { curJob = b.dataset.job; syncFormInputs(); });
+let editingId = null;
+function startEdit(id) {
+  const s = shifts.find(x => x.id === id);
+  if (!s) return;
+  editingId = id; curJob = s.job;
+  syncFormInputs();
+  document.getElementById('fDate').value = s.date;
+  if (s.job === 'so') {
+    document.getElementById('fStart').value = s.start || '';
+    document.getElementById('fEnd').value = s.end || '';
+  } else if (s.job === 'skole') {
+    document.getElementById('fRate').value = s.rate;
+    document.getElementById('fHours').value = +(s.hours / settings.modulLen).toFixed(2);
+  } else {
+    document.getElementById('fHours').value = s.hours;
+    document.getElementById('fRateCustom').value = s.customRate || '';
+  }
+  document.getElementById('fNote').value = s.note || '';
+  document.getElementById('btnSubmit').textContent = 'Save changes';
+  document.getElementById('btnCancelEdit').classList.remove('hidden');
+  document.getElementById('shiftForm').scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
+function resetForm() {
+  editingId = null;
+  ['fHours', 'fNote', 'fStart', 'fEnd', 'fRateCustom'].forEach(id => document.getElementById(id).value = '');
+  document.getElementById('fDate').value = iso(new Date());
+  document.getElementById('btnSubmit').textContent = '+ Add shift';
+  document.getElementById('btnCancelEdit').classList.add('hidden');
+}
+document.getElementById('btnCancelEdit').onclick = resetForm;
+document.getElementById('shiftForm').onsubmit = e => {
+  e.preventDefault();
+  const shift = {
+    id: editingId || newId(),
+    date: document.getElementById('fDate').value,
+    job: curJob,
+    rate: curJob === 'skole' ? document.getElementById('fRate').value : 'so',
+    note: document.getElementById('fNote').value.trim()
+  };
+  if (curJob === 'so') {
+    const st = document.getElementById('fStart').value, en = document.getElementById('fEnd').value;
+    if (!st || !en) { alert('Fill in check in and check out'); return; }
+    const [sh, sm] = st.split(':').map(Number), [eh, em] = en.split(':').map(Number);
+    let mins = (eh * 60 + em) - (sh * 60 + sm);
+    if (mins <= 0) mins += 24 * 60;
+    shift.hours = Math.round(mins / 60 * 100) / 100;
+    shift.start = st; shift.end = en;
+  } else if (curJob === 'skole') {
+    const mod = parseFloat(document.getElementById('fHours').value);
+    if (!mod || mod <= 0) { alert('Fill in number of modules'); return; }
+    shift.hours = mod * settings.modulLen;
+  } else {
+    shift.hours = parseFloat(document.getElementById('fHours').value);
+    if (!shift.hours || shift.hours <= 0) { alert('Fill in hours'); return; }
+    shift.customRate = parseFloat(document.getElementById('fRateCustom').value);
+    if (!shift.customRate || shift.customRate <= 0) { alert('Fill in rate (DKK/h)'); return; }
+  }
+  if (editingId) shifts = shifts.map(x => x.id === editingId ? shift : x);
+  else shifts.push(shift);
+  saveShifts(); resetForm(); renderAll();
+};
+
+// ================= BUDGET =================
+let budgetView = { y: now0.getFullYear(), m: now0.getMonth() };
+const ym = (y, m) => y + '-' + String(m + 1).padStart(2, '0');
+function recurringFor(y, m) { return recurring.filter(r => !r.since || r.since <= ym(y, m)); }
+function renderBudget() {
+  const { y, m } = budgetView;
+  const list = expenses.filter(e => inMonth(e.date, y, m));
+  const recs = recurringFor(y, m);
+  const manualSum = list.reduce((a, e) => a + e.amount, 0);
+  const recSum = recs.reduce((a, r) => a + r.amount, 0);
+  const spent = manualSum + recSum;
+  const isCur = y === now0.getFullYear() && m === now0.getMonth();
+  const income = payState && isCur ? payState.r1.total : 0;
+
+  document.getElementById('budHero').innerHTML = `
+    <div class="lbl">Spent in ${MDF[m]}</div>
+    <div class="big">${fmt0(spent)}</div>
+    <div class="sub">${fmt0(recSum)} recurring · ${fmt0(manualSum)} one-off</div>`;
+
+  // savings rate for the viewed month
+  const inc = isCur && payState ? payState.r1.total : payCalc({ y, m }, settings.frikortRest).total;
+  const saveAmt = inc - spent;
+  const rate = inc > 0 ? Math.round(saveAmt / inc * 100) : null;
+  document.getElementById('budStats').innerHTML = `
+    <div class="stat"><div class="lbl">Income (${MD[m]})</div><div class="v serif">${inc > 0 ? fmt0(inc) : '—'}</div><div class="s">payout that month</div></div>
+    <div class="stat"><div class="lbl">Kept</div><div class="v serif" style="color:${saveAmt >= 0 ? 'var(--green)' : 'var(--red)'}">${inc > 0 ? (saveAmt >= 0 ? '+' : '−') + fmt0(Math.abs(saveAmt)) : '—'}</div><div class="s">income − spending</div></div>
+    <div class="stat"><div class="lbl">Savings rate</div><div class="v serif" style="color:${rate === null ? 'var(--ink)' : rate >= 20 ? 'var(--green)' : rate >= 0 ? 'var(--orange)' : 'var(--red)'}">${rate === null ? '—' : rate + '%'}</div><div class="s">${rate === null ? 'no income logged' : rate >= 20 ? 'building wealth' : rate >= 0 ? 'thin margin' : 'spending more than you earn'}</div></div>`;
+
+  // breakdown by category
+  const byCat = CATS.map(([k, name]) => {
+    const v = list.filter(e => e.cat === k).reduce((a, e) => a + e.amount, 0) +
+              recs.filter(r => r.cat === k).reduce((a, r) => a + r.amount, 0);
+    return [name, v];
+  }).filter(([, v]) => v > 0).sort((a, b) => b[1] - a[1]);
+  document.getElementById('budBreakdown').innerHTML = `
+    <div class="lbl">Where it went</div>
+    ${byCat.length === 0 ? '<div class="emptybox" style="margin-top:10px">Nothing logged in ' + MDF[m] + ' yet</div>'
+      : byCat.map(([name, v]) => `<div class="prow" style="margin-top:4px"><span>${name}</span><span class="num"><b>${fmt0(v)}</b> <span class="muted">${spent > 0 ? Math.round(v / spent * 100) + '%' : ''}</span></span></div>`).join('')
+    }`;
+
+  document.getElementById('bCur').textContent = MDF[m] + ' ' + y;
+
+  // recurring list
+  const rEl = document.getElementById('recList');
+  if (recurring.length === 0) rEl.innerHTML = '<div class="emptybox">No recurring costs yet</div>';
+  else {
+    rEl.innerHTML = '<table class="shiftlist"><tr><th>Name</th><th>Category</th><th class="num">Per month</th><th></th></tr>' +
+      recurring.map(r => `<tr><td><b>${r.name}</b></td><td class="muted">${CATNAME[r.cat] || r.cat}</td><td class="num">${fmt0(r.amount)}</td><td style="white-space:nowrap;text-align:right"><button class="icon redit" data-id="${r.id}">✎</button><button class="icon rrm" data-id="${r.id}" style="color:#c0392b">×</button></td></tr>`).join('') +
+      `</table><div class="mtotal"><span>${recurring.length} recurring</span><span class="serif">${fmt0(recurring.reduce((a, r) => a + r.amount, 0))}/mo</span></div>`;
+    rEl.querySelectorAll('.rrm').forEach(b => b.onclick = () => {
+      recurring = recurring.filter(x => x.id !== b.dataset.id);
+      if (editingRecId === b.dataset.id) resetRecForm();
+      save(RE_KEY, recurring); renderBudget();
+    });
+    rEl.querySelectorAll('.redit').forEach(b => b.onclick = () => startRecEdit(b.dataset.id));
+  }
+
+  // transactions
+  const exEl = document.getElementById('expList');
+  const sorted = [...list].sort((a, b) => b.date.localeCompare(a.date));
+  const recRows = recs.map(r => `<tr><td class="muted">1 ${MD[m]}</td><td>${CATNAME[r.cat] || r.cat}</td><td class="num">${fmt0(r.amount)}</td><td class="muted">${r.name} <span class="tag" style="font-size:9px">recurring</span></td><td></td></tr>`).join('');
+  if (sorted.length === 0 && recs.length === 0) exEl.innerHTML = '<div class="emptybox">No expenses in ' + MDF[m] + '</div>';
+  else {
+    let h = '<table class="shiftlist"><tr><th>Date</th><th>Category</th><th class="num">Amount</th><th>Note</th><th></th></tr>' + recRows;
+    sorted.forEach(ex => {
+      const d = new Date(ex.date + 'T12:00:00');
+      h += `<tr><td>${dstr(d)}</td><td>${CATNAME[ex.cat] || ex.cat}</td><td class="num">${fmt0(ex.amount)}</td><td class="muted">${ex.note || ''}</td><td style="white-space:nowrap;text-align:right"><button class="icon eedit" data-id="${ex.id}">✎</button><button class="icon erm" data-id="${ex.id}" style="color:#c0392b">×</button></td></tr>`;
+    });
+    h += `</table><div class="mtotal"><span>${sorted.length + recs.length} transactions</span><span class="serif">${fmt0(spent)}</span></div>`;
+    exEl.innerHTML = h;
+    exEl.querySelectorAll('.erm').forEach(b => b.onclick = () => {
+      expenses = expenses.filter(x => x.id !== b.dataset.id);
+      if (editingExpId === b.dataset.id) resetExpForm();
+      save(EX_KEY, expenses); renderBudget();
+    });
+    exEl.querySelectorAll('.eedit').forEach(b => b.onclick = () => startExpEdit(b.dataset.id));
+  }
+}
+document.getElementById('bPrev').onclick = () => { budgetView.m--; if (budgetView.m < 0) { budgetView.m = 11; budgetView.y--; } renderBudget(); };
+document.getElementById('bNext').onclick = () => { budgetView.m++; if (budgetView.m > 11) { budgetView.m = 0; budgetView.y++; } renderBudget(); };
+document.getElementById('eCat').innerHTML = CATS.map(([k, n]) => `<option value="${k}">${n}</option>`).join('');
+document.getElementById('rCat').innerHTML = CATS.map(([k, n]) => `<option value="${k}">${n}</option>`).join('');
+let editingExpId = null;
+function startExpEdit(id) {
+  const ex = expenses.find(x => x.id === id); if (!ex) return;
+  editingExpId = id;
+  document.getElementById('eDate').value = ex.date;
+  document.getElementById('eCat').value = ex.cat;
+  document.getElementById('eAmt').value = ex.amount;
+  document.getElementById('eNote').value = ex.note || '';
+  document.getElementById('btnExpSubmit').textContent = 'Save changes';
+  document.getElementById('btnCancelExpEdit').classList.remove('hidden');
+  document.getElementById('expForm').scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
+function resetExpForm() {
+  editingExpId = null;
+  document.getElementById('eAmt').value = ''; document.getElementById('eNote').value = '';
+  document.getElementById('eDate').value = iso(new Date());
+  document.getElementById('btnExpSubmit').textContent = '+ Add expense';
+  document.getElementById('btnCancelExpEdit').classList.add('hidden');
+}
+document.getElementById('btnCancelExpEdit').onclick = resetExpForm;
+document.getElementById('expForm').onsubmit = e => {
+  e.preventDefault();
+  const amount = parseFloat(document.getElementById('eAmt').value);
+  if (!amount || amount <= 0) { alert('Fill in amount'); return; }
+  const ex = { id: editingExpId || newId(), date: document.getElementById('eDate').value, cat: document.getElementById('eCat').value, amount, note: document.getElementById('eNote').value.trim() };
+  if (editingExpId) expenses = expenses.map(x => x.id === editingExpId ? ex : x);
+  else expenses.push(ex);
+  save(EX_KEY, expenses); resetExpForm(); renderBudget();
+};
+let editingRecId = null;
+function startRecEdit(id) {
+  const r = recurring.find(x => x.id === id); if (!r) return;
+  editingRecId = id;
+  document.getElementById('rName').value = r.name;
+  document.getElementById('rAmt').value = r.amount;
+  document.getElementById('rCat').value = r.cat;
+  document.getElementById('btnRecSubmit').textContent = 'Save changes';
+  document.getElementById('btnCancelRecEdit').classList.remove('hidden');
+}
+function resetRecForm() {
+  editingRecId = null;
+  document.getElementById('rName').value = ''; document.getElementById('rAmt').value = '';
+  document.getElementById('btnRecSubmit').textContent = '+ Add recurring';
+  document.getElementById('btnCancelRecEdit').classList.add('hidden');
+}
+document.getElementById('btnCancelRecEdit').onclick = resetRecForm;
+document.getElementById('recForm').onsubmit = e => {
+  e.preventDefault();
+  const name = document.getElementById('rName').value.trim();
+  const amount = parseFloat(document.getElementById('rAmt').value);
+  if (!name || !amount || amount <= 0) { alert('Fill in name and amount'); return; }
+  const old = editingRecId && recurring.find(x => x.id === editingRecId);
+  const r = { id: editingRecId || newId(), name, amount, cat: document.getElementById('rCat').value, since: old ? old.since : ym(now0.getFullYear(), now0.getMonth()) };
+  if (editingRecId) recurring = recurring.map(x => x.id === editingRecId ? r : x);
+  else recurring.push(r);
+  save(RE_KEY, recurring); resetRecForm(); renderBudget();
+};
+
+// AI analysis
+document.getElementById('btnAI').onclick = async () => {
+  const out = document.getElementById('aiOut'), btn = document.getElementById('btnAI');
+  out.classList.remove('hidden');
+  if (!window.cowork || !window.cowork.askClaude) { out.textContent = 'AI analysis only works inside Claude.'; return; }
+  btn.disabled = true; out.textContent = 'Analyzing your finances…';
+  try {
+    const { y, m } = budgetView;
+    const list = expenses.filter(e => inMonth(e.date, y, m));
+    const recs = recurringFor(y, m);
+    const data = {
+      month: MDF[m] + ' ' + y,
+      payout_this_month_dkk: payState ? Math.round(payState.r1.total) : 0,
+      next_payout_dkk: payState ? Math.round(payState.r2.total) : 0,
+      frikort_left_dkk: payState ? Math.round(payState.r2.frikortAfter) : 0,
+      recurring_monthly: recs.map(r => ({ name: r.name, dkk: r.amount, category: CATNAME[r.cat] })),
+      expenses: list.map(e => ({ date: e.date, category: CATNAME[e.cat], dkk: e.amount, note: e.note })),
+      cash_accounts: cash.map(c => ({ name: c.name, dkk: c.amount })),
+      portfolio_dkk: holdings.map(h => ({ name: h.name, value_dkk: Math.round((h.price || 0) * h.qty * (h.fx || 1)), sector: h.sector }))
+    };
+    const prompt = 'You are a blunt, practical personal finance adviser for Oscar, 20, a student in Copenhagen with two part-time jobs, moving into his own apartment in under a month. From the JSON data, give 3-5 short, concrete observations and recommendations in English. Focus on: overspending, room for saving/investing, and readiness for fixed housing costs. Note his frikort (tax-free allowance) is nearly used up, so payouts will drop ~35% once it runs out. No preamble, just the points.';
+    const res = await window.cowork.askClaude(prompt, [JSON.stringify(data)]);
+    out.textContent = typeof res === 'string' ? res : (res && (res.text || res.content)) || JSON.stringify(res);
+  } catch (err) {
+    out.textContent = 'Analysis failed: ' + (err && err.message ? err.message : err);
+  }
+  btn.disabled = false;
+};
+
+// ================= INVEST =================
+let selStock = null; // {symbol,name,type,region,currency}
+let searchTimer = null;
+const drop = document.getElementById('srchDrop');
+document.getElementById('tSearch').oninput = e => {
+  const q = e.target.value.trim();
+  clearTimeout(searchTimer);
+  if (q.length < 2) { drop.classList.add('hidden'); return; }
+  searchTimer = setTimeout(async () => {
+    drop.innerHTML = '<div class="srchitem"><span class="muted">Searching…</span></div>';
+    drop.classList.remove('hidden');
+    let items = null, errMsg = null;
+    try {
+      let matches = await fmp('search', { endpoint: 'search-name', query: q, limit: 8 });
+      if (!Array.isArray(matches)) matches = [];
+      items = matches.map(x => ({
+        symbol: x.symbol, name: x.name, type: '', region: x.exchangeFullName || x.exchange || '', currency: x.currency
+      }));
+    } catch (err) { errMsg = err.message; }
+    if ((!items || !items.length)) {
+      // fallback: Alpha Vantage symbol search
+      try {
+        const d = await mcp('SYMBOL_SEARCH', { keywords: q, datatype: 'json' });
+        items = (d.bestMatches || []).slice(0, 8).map(x => ({
+          symbol: x['1. symbol'], name: x['2. name'], type: x['3. type'], region: x['4. region'], currency: x['8. currency']
+        }));
+      } catch (err2) { if (!errMsg) errMsg = err2.message; }
+    }
+    if (!items || !items.length) {
+      drop.innerHTML = '<div class="srchitem"><span class="muted">' + (errMsg ? 'Search failed: ' + errMsg : 'No matches') + '</span></div>';
+      return;
+    }
+    drop.innerHTML = items.map(x => `<div class="srchitem" data-m='${JSON.stringify(x).replace(/'/g, '&#39;')}'>
+      <span><span class="sym">${x.symbol}</span> — ${x.name}</span>
+      <span class="meta">${[x.type, x.region, x.currency].filter(Boolean).join(' · ')}</span>
+    </div>`).join('');
+    drop.querySelectorAll('.srchitem').forEach(el => el.onclick = () => {
+      selStock = JSON.parse(el.dataset.m);
+      drop.classList.add('hidden');
+      document.getElementById('tSearch').value = '';
+      renderSel();
+    });
+  }, 450);
+};
+document.addEventListener('click', e => { if (!e.target.closest('.searchwrap')) drop.classList.add('hidden'); });
+function renderSel() {
+  const w = document.getElementById('selWrap');
+  if (!selStock) { w.classList.add('hidden'); return; }
+  w.classList.remove('hidden');
+  w.innerHTML = `<span class="selchip">${selStock.symbol} — ${selStock.name} · ${selStock.currency}<button type="button" id="clearSel">×</button></span>`;
+  document.getElementById('hBuyLabel').textContent = 'Buy price (' + selStock.currency + ')';
+  document.getElementById('clearSel').onclick = () => { selStock = null; renderSel(); };
+}
+let editingLot = null; // {posId, lotId}
+document.getElementById('holdForm').onsubmit = async e => {
+  e.preventDefault();
+  const qty = parseFloat(document.getElementById('hQty').value);
+  const buy = parseFloat(document.getElementById('hBuy').value) || 0;
+  const status = document.getElementById('invStatus');
+  if (editingLot) {
+    const pos = holdings.find(p => p.id === editingLot.posId);
+    if (pos) {
+      const lot = pos.lots.find(l => l.id === editingLot.lotId);
+      if (lot) { lot.qty = qty || lot.qty; lot.buy = buy; }
+    }
+    save(HO_KEY, holdings); resetHoldForm(); renderInvest(); renderPie();
+    return;
+  }
+  if (!selStock) { alert('Search and select a stock first'); return; }
+  if (!qty || qty <= 0) { alert('Fill in quantity'); return; }
+  const account = document.getElementById('hAcc').value;
+  const btn = document.getElementById('btnHoldSubmit');
+  const existing = holdings.find(p => p.symbol === selStock.symbol && p.account === account);
+  if (existing) {
+    existing.lots.push({ id: newId(), qty, buy, date: iso(new Date()) });
+    save(HO_KEY, holdings);
+    selStock = null; renderSel();
+    document.getElementById('hQty').value = ''; document.getElementById('hBuy').value = '';
+    status.textContent = 'Added as a new lot under ' + existing.symbol + ' (' + account + ').';
+    renderInvest(); renderPie();
+    return;
+  }
+  btn.disabled = true; status.textContent = 'Fetching price, sector and FX…';
+  const h = { id: newId(), symbol: selStock.symbol, name: selStock.name, type: selStock.type, currency: selStock.currency, account, price: 0, chg: 0, sector: null, fx: 1, updated: null, lots: [{ id: newId(), qty, buy, date: iso(new Date()) }] };
+  try {
+    const p = await fetchProfile(h.symbol);
+    h.price = p.price; h.chg = p.chg; h.sector = p.sector;
+    if (p.currency) h.currency = p.currency;
+    if (p.name) h.name = p.name;
+  } catch {
+    try {
+      const q = await fetchQuote(h.symbol);
+      h.price = q.price; h.chg = q.chg; h.sector = 'Other';
+    } catch {
+      try {
+        const q = await mcp('GLOBAL_QUOTE', { symbol: h.symbol, datatype: 'json' });
+        const g = q['Global Quote'] || {};
+        h.price = parseFloat(g['05. price']) || 0;
+        h.chg = parseFloat((g['10. change percent'] || '0').replace('%', '')) || 0;
+        h.sector = 'Other';
+      } catch { status.textContent = 'Could not fetch price — added without it, hit Refresh later.'; }
+    }
+  }
+  h.fx = await fxRate(h.currency);
+  h.updated = Date.now();
+  holdings.push(h);
+  save(HO_KEY, holdings);
+  selStock = null; renderSel();
+  document.getElementById('hQty').value = ''; document.getElementById('hBuy').value = '';
+  if (status.textContent.startsWith('Fetching')) status.textContent = '';
+  btn.disabled = false;
+  renderInvest(); renderPie();
+};
+function resetHoldForm() {
+  editingLot = null;
+  document.getElementById('hQty').value = ''; document.getElementById('hBuy').value = '';
+  document.getElementById('btnHoldSubmit').textContent = '+ Add position';
+  document.getElementById('btnCancelHoldEdit').classList.add('hidden');
+  document.getElementById('hBuyLabel').textContent = 'Buy price';
+}
+document.getElementById('btnCancelHoldEdit').onclick = resetHoldForm;
+function startLotEdit(posId, lotId) {
+  const pos = holdings.find(p => p.id === posId); if (!pos) return;
+  const lot = pos.lots.find(l => l.id === lotId); if (!lot) return;
+  editingLot = { posId, lotId };
+  document.getElementById('hQty').value = lot.qty;
+  document.getElementById('hBuy').value = lot.buy;
+  document.getElementById('hBuyLabel').textContent = 'Buy price (' + pos.currency + ')';
+  document.getElementById('btnHoldSubmit').textContent = 'Save lot · ' + pos.symbol;
+  document.getElementById('btnCancelHoldEdit').classList.remove('hidden');
+  document.getElementById('holdForm').scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
+let refreshing = false;
+let lastRefreshMeta = '';
+async function doRefresh() {
+  if (!holdings.length || refreshing) return;
+  refreshing = true;
+  const btn = document.getElementById('btnRefresh');
+  btn.disabled = true; btn.textContent = '↻ Updating…';
+  let sheetPrices = {};
+  try { sheetPrices = await fetchSheetPrices(true); } catch { /* diagnostic captured in sheetDebug, surfaced below */ }
+  let fromSheet = 0, fromApi = 0;
+  for (const h of holdings) {
+    const sp = sheetPrices[h.symbol];
+    if (sp) {
+      h.price = sp.price; h.chg = sp.chg;
+      try { h.fx = await fxRate(h.currency); } catch { /* keep cached fx */ }
+      h.updated = Date.now();
+      fromSheet++;
+      continue; // covered by the sheet — no need to spend an API call on it
+    }
+    fromApi++;
+    try {
+      const p = await fetchProfile(h.symbol);
+      h.price = p.price || h.price;
+      h.chg = p.chg;
+      if (!h.sector || h.sector === 'Other') h.sector = p.sector;
+      h.fx = await fxRate(h.currency);
+      h.updated = Date.now();
+    } catch {
+      try {
+        const q = await fetchQuote(h.symbol);
+        h.price = q.price || h.price; h.chg = q.chg;
+        h.fx = await fxRate(h.currency);
+        h.updated = Date.now();
+      } catch {
+        try {
+          const q = await mcp('GLOBAL_QUOTE', { symbol: h.symbol, datatype: 'json' });
+          const g = q['Global Quote'] || {};
+          h.price = parseFloat(g['05. price']) || h.price;
+          h.chg = parseFloat((g['10. change percent'] || '0').replace('%', '')) || 0;
+          h.fx = await fxRate(h.currency);
+          h.updated = Date.now();
+        } catch { /* keep old price */ }
+      }
+    }
+  }
+  save(HO_KEY, holdings);
+  lastRefreshMeta = settings.sheetCsvUrl ? (fromSheet + ' via sheet · ' + fromApi + ' via API') : '';
+  const status = document.getElementById('invStatus');
+  if (settings.sheetCsvUrl && status) {
+    if (!sheetDebug || !sheetDebug.ok) {
+      status.textContent = '⚠ Sheet: ' + ((sheetDebug && sheetDebug.error) || 'could not load the URL') + ' — using the API for all positions until this is fixed.';
+    } else if (!sheetDebug.headerOk) {
+      status.textContent = '⚠ Sheet loaded (' + sheetDebug.rowCount + ' rows) but couldn\'t find "Symbol" / "Live Price (native)" columns. First row seen: ' + sheetDebug.headerSample;
+    } else if (sheetDebug.matched === 0) {
+      status.textContent = '⚠ Sheet loaded and headers look right, but no row had a usable number in "Live Price (native)" — check the GOOGLEFINANCE cells aren\'t all showing #N/A or blank.';
+    } else {
+      status.textContent = '';
+    }
+  }
+  btn.disabled = false; btn.textContent = '↻ Refresh prices';
+  refreshing = false;
+  renderInvest(); renderPie();
+}
+document.getElementById('btnRefresh').onclick = doRefresh;
+// auto-refresh: when opening the Invest tab (if prices >15 min old) and every 15 min while open
+function autoRefresh() {
+  if (!holdings.length || !(coworkReady() || settings.fmpKey)) return;
+  const newest = holdings.reduce((a, h) => Math.max(a, h.updated || 0), 0);
+  if (Date.now() - newest > 15 * 60 * 1000) doRefresh();
+}
+setInterval(() => { if (curPage === 'invest') autoRefresh(); }, 15 * 60 * 1000);
+const qtyOf = p => p.lots.reduce((a, l) => a + l.qty, 0);
+const costNative = p => p.lots.reduce((a, l) => a + l.qty * (l.buy || 0), 0);
+const avgBuy = p => { const q = qtyOf(p); return q > 0 ? costNative(p) / q : 0; };
+function valDKK(p) { return qtyOf(p) * (p.price || 0) * (p.fx || 1); }
+function costDKK(p) { return costNative(p) * (p.fx || 1); }
+// ---- net worth snapshots (one per day, latest value wins) ----
+const NW_KEY = 'lontracker_networth_v1';
+let nwHistory = JSON.parse(localStorage.getItem(NW_KEY) || '[]');
+// migration: monthly (ym) entries → week-keyed
+nwHistory = nwHistory.map(x => x.ym ? { wk: x.ym + '-01', invested: x.invested, cash: x.cash, total: x.total } : x);
+// one-time cleanup: drop the early Jul 1 snapshot so the net worth chart starts from this week
+if (nwHistory.some(x => x.wk === '2026-07-01')) {
+  nwHistory = nwHistory.filter(x => x.wk !== '2026-07-01');
+  save(NW_KEY, nwHistory);
+}
+// one-time fix: old logic snapped to the Monday of the week (bug) instead of the actual date —
+// that leftover "19 Jul" point was really captured on the 23rd (when the portfolio was built out)
+if (nwHistory.some(x => x.wk === '2026-07-19')) {
+  nwHistory = nwHistory.map(x => x.wk === '2026-07-19' ? { ...x, wk: '2026-07-23' } : x);
+  save(NW_KEY, nwHistory);
+}
+function weekKey(d) { return iso(d); } // one snapshot per calendar day (previously snapped to Monday — now uses the real date)
+function snapshotNetWorth(invested, cashTotal) {
+  if (invested <= 0 && cashTotal <= 0) return;
+  const key = weekKey(new Date());
+  const snap = { wk: key, invested: Math.round(invested), cash: Math.round(cashTotal), total: Math.round(invested + cashTotal) };
+  const i = nwHistory.findIndex(x => x.wk === key);
+  if (i >= 0) nwHistory[i] = snap; else nwHistory.push(snap);
+  nwHistory.sort((a, b) => a.wk.localeCompare(b.wk));
+  save(NW_KEY, nwHistory);
+}
+let nwChart = null;
+function renderNW() {
+  const box = document.getElementById('nwBox');
+  if (!box || curPage !== 'invest') return;
+  if (nwChart) { nwChart.destroy(); nwChart = null; }
+  if (nwHistory.length < 2 || typeof Chart === 'undefined') {
+    box.innerHTML = '<div class="emptybox" style="height:auto;padding:26px">A snapshot is saved automatically each week — the trend line appears from week two. Current: ' +
+      (nwHistory.length ? fmt0(nwHistory[nwHistory.length - 1].total) : '—') + '</div>';
+    return;
+  }
+  box.innerHTML = '<canvas id="nwChart"></canvas>';
+  const mutCol = document.body.classList.contains('dark') ? '#8b8d80' : '#9a998f';
+  const labels = nwHistory.map(x => dstr(new Date(x.wk + 'T12:00:00')));
+  nwChart = new Chart(document.getElementById('nwChart'), {
+    type: 'line',
+    data: { labels, datasets: [
+      { label: 'Total', data: nwHistory.map(x => x.total), borderColor: '#1d5c44', backgroundColor: 'rgba(29,92,68,.08)', fill: true, tension: .3, pointRadius: 3 },
+      { label: 'Invested', data: nwHistory.map(x => x.invested), borderColor: '#2563eb', borderDash: [4, 4], fill: false, tension: .3, pointRadius: 2 }
+    ]},
+    options: { responsive: true, maintainAspectRatio: false,
+      scales: { x: { grid: { display: false }, ticks: { color: mutCol } }, y: { border: { display: false }, ticks: { color: mutCol } } },
+      plugins: { legend: { position: 'bottom', labels: { usePointStyle: true, pointStyle: 'circle', boxWidth: 5, color: mutCol } },
+        tooltip: { callbacks: { label: ctx => ' ' + ctx.dataset.label + ': ' + fmt0(ctx.parsed.y) } } } }
+  });
+}
+const openLots = new Set();
+function renderInvest() {
+  const val = holdings.reduce((a, p) => a + valDKK(p), 0);
+  const cost = holdings.reduce((a, p) => a + costDKK(p), 0);
+  const gain = val - cost;
+  const gainPct = cost > 0 ? (gain / cost * 100) : 0;
+  const cashTotal = cash.reduce((a, c) => a + c.amount, 0);
+  snapshotNetWorth(val, cashTotal);
+  const accVal = acc => holdings.filter(p => p.account === acc).reduce((a, p) => a + valDKK(p), 0);
+  const accPL = acc => holdings.filter(p => p.account === acc).reduce((a, p) => a + (valDKK(p) - costDKK(p)), 0);
+  const present = [...new Set(holdings.map(p => p.account))];
+  const activeAccounts = [...settings.accNames.filter(a => present.includes(a)), ...present.filter(a => !settings.accNames.includes(a))];
+  document.getElementById('invHero').innerHTML = `
+    <div class="lbl">Total net worth</div>
+    <div class="big">${fmt0(val + cashTotal)}</div>
+    <div class="sub">${fmt0(val)} invested${cost > 0 ? ' · ' + (gain >= 0 ? '+' : '−') + fmt0(Math.abs(gain)) + ' (' + (gain >= 0 ? '+' : '') + gainPct.toFixed(1) + '%) all time' : ''} · ${fmt0(cashTotal)} cash</div>
+    <div class="chips">${activeAccounts.map(a => `<span class="chip">${a} ${fmt0(accVal(a))}</span>`).join('')}${cashTotal > 0 ? `<span class="chip">💵 Cash ${fmt0(cashTotal)}</span>` : ''}</div>`;
+
+  const upd = holdings.reduce((a, p) => Math.max(a, p.updated || 0), 0);
+  document.getElementById('pricesUpdated').textContent = upd ? 'As of ' + new Date(upd).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) + (lastRefreshMeta ? ' · ' + lastRefreshMeta : '') : '';
+
+  const el = document.getElementById('holdList');
+  if (!holdings.length) { el.innerHTML = '<div class="emptybox">No positions yet — search above to add your first</div>'; return; }
+
+  // account summary strip
+  let html = `<div class="accgrid">${activeAccounts.map(a => {
+    const v = accVal(a), pl = accPL(a);
+    return `<div class="accmini"><div class="k">${a}</div><div class="v">${fmt0(v)}</div><div class="s"><span style="color:${pl >= 0 ? 'var(--c-skole)' : 'var(--red)'};font-weight:650">${pl >= 0 ? '+' : '−'}${fmt0(Math.abs(pl))}</span> · ${val > 0 ? Math.round(v / val * 100) + '%' : ''}</div></div>`;
+  }).join('')}</div>`;
+
+  // positions grouped by account
+  activeAccounts.forEach(acc => {
+    const list = holdings.filter(p => p.account === acc).sort((a, b) => valDKK(b) - valDKK(a));
+    const apl = accPL(acc);
+    html += `<div class="acchead"><span class="nm">${acc} · ${list.length} position${list.length === 1 ? '' : 's'}</span><span class="val">${fmt0(accVal(acc))} <span style="font-size:11.5px;font-weight:600;color:${apl >= 0 ? 'var(--c-skole)' : 'var(--red)'}">${apl >= 0 ? '+' : '−'}${fmt0(Math.abs(apl))}</span></span></div>`;
+    html += `<table class="shiftlist postable">
+      <colgroup><col style="width:26px"><col><col style="width:8%"><col style="width:12.5%"><col style="width:12.5%"><col style="width:8.5%"><col style="width:13.5%"><col style="width:12.5%"><col style="width:34px"></colgroup>
+      <tr><th></th><th>Position</th><th class="num">Qty</th><th class="num">Avg buy</th><th class="num">Price</th><th class="num">Today</th><th class="num">Value (DKK)</th><th class="num">P/L</th><th></th></tr>`;
+    list.forEach(x => {
+      const v = valDKK(x), c = costDKK(x), g = v - c;
+      const gp = c > 0 ? (g / c * 100) : 0;
+      const q = qtyOf(x);
+      const isOpen = openLots.has(x.id);
+      html += `<tr>
+        <td style="width:20px"><button class="chev${isOpen ? ' open' : ''}" data-id="${x.id}" title="Show lots">▶</button></td>
+        <td class="posname"><b>${x.symbol}</b><br><span class="muted" style="font-size:11px">${x.name}${x.sector ? ' · ' + x.sector : ''}</span></td>
+        <td class="num">${q.toLocaleString('da-DK')}</td>
+        <td class="num">${avgBuy(x) > 0 ? avgBuy(x).toLocaleString('da-DK', { maximumFractionDigits: 2 }) + ' ' + x.currency : '—'}</td>
+        <td class="num">${(x.price || 0).toLocaleString('da-DK', { maximumFractionDigits: 2 })} ${x.currency}</td>
+        <td class="num" style="color:${x.chg >= 0 ? 'var(--c-skole)' : 'var(--red)'}">${x.chg >= 0 ? '+' : ''}${(x.chg || 0).toFixed(2)}%</td>
+        <td class="num"><b>${fmt0(v)}</b></td>
+        <td class="num" style="color:${g >= 0 ? 'var(--c-skole)' : 'var(--red)'}">${c > 0 ? `<b>${g >= 0 ? '+' : '−'}${fmt0(Math.abs(g))}</b><br><span style="font-size:11px">${(g >= 0 ? '+' : '') + gp.toFixed(1)}%</span>` : '—'}</td>
+        <td><button class="icon prm" data-id="${x.id}" title="Delete position" style="color:#c0392b">×</button></td>
+      </tr>`;
+      if (isOpen) {
+        html += `<tr class="lotsrow"><td colspan="9">${perfBlockHtml(x, c, gp)}${x.lots.map(l => `
+          <div class="lotline">
+            <span class="muted">${l.date ? dstr(new Date(l.date + 'T12:00:00')) + ' · ' : ''}${l.qty.toLocaleString('da-DK')} @ ${(l.buy || 0).toLocaleString('da-DK', { maximumFractionDigits: 2 })} ${x.currency}</span>
+            <span style="display:flex;align-items:center;gap:6px">
+              <span>${fmt0(l.qty * (l.buy || 0) * (x.fx || 1))} invested</span>
+              <button class="icon lsell" data-pos="${x.id}" data-lot="${l.id}" title="Sell">💰</button>
+              <button class="icon ledit" data-pos="${x.id}" data-lot="${l.id}">✎</button>
+              <button class="icon lrm" data-pos="${x.id}" data-lot="${l.id}" style="color:#c0392b">×</button>
+            </span>
+          </div>`).join('')}</td></tr>`;
+      }
+    });
+    html += '</table>';
+  });
+  html += `<div class="mtotal"><span>${holdings.length} positions · ${activeAccounts.length} accounts</span><span class="serif">${fmt0(val)}</span></div>`;
+  el.innerHTML = html;
+
+  el.querySelectorAll('.chev').forEach(b => b.onclick = () => {
+    const id = b.dataset.id;
+    if (openLots.has(id)) { openLots.delete(id); }
+    else {
+      openLots.add(id);
+      const pos = holdings.find(p => p.id === id);
+      if (pos && !perfResults[id]) loadPerf(pos);
+    }
+    renderInvest();
+  });
+  el.querySelectorAll('.prm').forEach(b => b.onclick = () => {
+    const pos = holdings.find(p => p.id === b.dataset.id);
+    if (!pos || !confirm('Delete ' + pos.symbol + ' (' + pos.account + ') and all its lots?')) return;
+    holdings = holdings.filter(p => p.id !== b.dataset.id);
+    if (editingLot && editingLot.posId === b.dataset.id) resetHoldForm();
+    save(HO_KEY, holdings); renderInvest(); renderPie();
+  });
+  el.querySelectorAll('.ledit').forEach(b => b.onclick = () => startLotEdit(b.dataset.pos, b.dataset.lot));
+  el.querySelectorAll('.lrm').forEach(b => b.onclick = () => {
+    const pos = holdings.find(p => p.id === b.dataset.pos);
+    if (!pos) return;
+    pos.lots = pos.lots.filter(l => l.id !== b.dataset.lot);
+    if (!pos.lots.length) holdings = holdings.filter(p => p.id !== pos.id);
+    if (editingLot && editingLot.lotId === b.dataset.lot) resetHoldForm();
+    save(HO_KEY, holdings); renderInvest(); renderPie();
+  });
+  el.querySelectorAll('.lsell').forEach(b => b.onclick = () => sellLot(b.dataset.pos, b.dataset.lot));
+}
+// ---- sell a lot (fully or partially) and log the realized gain/loss ----
+async function sellLot(posId, lotId) {
+  const pos = holdings.find(p => p.id === posId); if (!pos) return;
+  const lot = pos.lots.find(l => l.id === lotId); if (!lot) return;
+  const qtyStr = prompt('Sell how many ' + pos.symbol + ' shares? (max ' + lot.qty.toLocaleString('da-DK') + ')', lot.qty);
+  if (qtyStr === null) return;
+  const qty = parseFloat(qtyStr.replace(',', '.'));
+  if (!qty || qty <= 0 || qty > lot.qty + 1e-9) { alert('Enter a quantity between 0 and ' + lot.qty); return; }
+  const priceStr = prompt('Sell price per share (' + pos.currency + ')', pos.price || lot.buy || '');
+  if (priceStr === null) return;
+  const sellPrice = parseFloat(priceStr.replace(',', '.'));
+  if (isNaN(sellPrice) || sellPrice < 0) { alert('Enter a valid price'); return; }
+  const dateStr = prompt('Sell date (YYYY-MM-DD)', iso(new Date()));
+  if (dateStr === null) return;
+  const sellDate = /^\d{4}-\d{2}-\d{2}$/.test(dateStr.trim()) ? dateStr.trim() : iso(new Date());
+  let fx = pos.fx || 1;
+  try { fx = await fxRate(pos.currency); } catch { /* keep cached fx */ }
+  const sale = {
+    id: newId(), symbol: pos.symbol, name: pos.name, account: pos.account, currency: pos.currency,
+    qty, buyPrice: lot.buy || 0, buyDate: lot.date || null, sellPrice, sellDate, fx
+  };
+  sales.push(sale);
+  save(SALES_KEY, sales);
+  if (qty >= lot.qty - 1e-9) {
+    pos.lots = pos.lots.filter(l => l.id !== lotId);
+    if (!pos.lots.length) holdings = holdings.filter(p => p.id !== pos.id);
+  } else {
+    lot.qty -= qty;
+  }
+  save(HO_KEY, holdings);
+  renderInvest(); renderPie(); renderSales();
+}
+function saleRealized(s) { return (s.sellPrice - s.buyPrice) * s.qty * (s.fx || 1); }
+function renderSales() {
+  const card = document.getElementById('salesCard');
+  const el = document.getElementById('salesList');
+  if (!card || !el) return;
+  if (!sales.length) { card.classList.add('hidden'); return; }
+  card.classList.remove('hidden');
+  const sorted = [...sales].sort((a, b) => (b.sellDate || '').localeCompare(a.sellDate || ''));
+  const totalRealized = sales.reduce((a, s) => a + saleRealized(s), 0);
+  let html = `<div class="prow total" style="margin-bottom:8px"><span class="k">Total realized</span><span class="tilkonto" style="color:${totalRealized >= 0 ? '' : 'var(--red)'}">${totalRealized >= 0 ? '+' : '−'}${fmt0(Math.abs(totalRealized))}</span></div>`;
+  html += `<table class="shiftlist"><tr><th>Sold</th><th>Position</th><th class="num">Qty</th><th class="num">Buy</th><th class="num">Sell</th><th class="num">Realized</th><th></th></tr>`;
+  sorted.forEach(s => {
+    const g = saleRealized(s);
+    const gp = s.buyPrice > 0 ? ((s.sellPrice - s.buyPrice) / s.buyPrice * 100) : 0;
+    html += `<tr>
+      <td class="muted">${s.sellDate ? dstr(new Date(s.sellDate + 'T12:00:00')) : '—'}</td>
+      <td><b>${s.symbol}</b><br><span class="muted" style="font-size:11px">${s.account}</span></td>
+      <td class="num">${s.qty.toLocaleString('da-DK')}</td>
+      <td class="num">${s.buyPrice.toLocaleString('da-DK', { maximumFractionDigits: 2 })} ${s.currency}</td>
+      <td class="num">${s.sellPrice.toLocaleString('da-DK', { maximumFractionDigits: 2 })} ${s.currency}</td>
+      <td class="num" style="color:${g >= 0 ? 'var(--c-skole)' : 'var(--red)'}"><b>${g >= 0 ? '+' : '−'}${fmt0(Math.abs(g))}</b><br><span style="font-size:11px">${(gp >= 0 ? '+' : '') + gp.toFixed(1)}%</span></td>
+      <td><button class="icon srm" data-id="${s.id}" title="Delete record" style="color:#c0392b">×</button></td>
+    </tr>`;
+  });
+  html += '</table>';
+  el.innerHTML = html;
+  el.querySelectorAll('.srm').forEach(b => b.onclick = () => {
+    if (!confirm('Delete this sale record? This only removes the record — it does not restore the shares.')) return;
+    sales = sales.filter(s => s.id !== b.dataset.id);
+    save(SALES_KEY, sales); renderSales();
+  });
+}
+let pie = null;
+function renderPie() {
+  const box = document.getElementById('pieBox');
+  if (!box || curPage !== 'invest') return;
+  if (pie) { pie.destroy(); pie = null; }
+  if (!holdings.length || typeof Chart === 'undefined') {
+    box.innerHTML = '<div class="emptybox" style="margin-top:6px">Add positions to see your sector split</div>'; return;
+  }
+  box.innerHTML = '<canvas id="pieChart"></canvas>';
+  const sectors = {};
+  holdings.forEach(h => { const s = sectorGroup(h.sector); sectors[s] = (sectors[s] || 0) + valDKK(h); });
+  const total = Object.values(sectors).reduce((a, b) => a + b, 0);
+  const entries = Object.entries(sectors).sort((a, b) => b[1] - a[1]);
+  const labels = entries.map(([s, v]) => s + ' · ' + Math.round(v / total * 100) + '%');
+  const colors = ['#1d8a5f', '#c0392b', '#2563eb', '#d97a33', '#8b5cf6', '#0d9488', '#b45309', '#64748b', '#be185d', '#4d7c0f'];
+  const mutCol = document.body.classList.contains('dark') ? '#8b8d80' : '#9a998f';
+  // inline plugin: draw % on slices big enough to fit it
+  const sliceLabels = {
+    id: 'sliceLabels',
+    afterDatasetsDraw(chart) {
+      const meta = chart.getDatasetMeta(0);
+      const data = chart.data.datasets[0].data;
+      const tot = data.reduce((a, b) => a + b, 0);
+      const ctx = chart.ctx;
+      meta.data.forEach((arc, i) => {
+        const pct = data[i] / tot * 100;
+        if (pct < 6) return;
+        const pos = arc.tooltipPosition();
+        ctx.save();
+        ctx.fillStyle = '#fff';
+        ctx.font = '700 11px -apple-system, sans-serif';
+        ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        ctx.fillText(Math.round(pct) + '%', pos.x, pos.y);
+        ctx.restore();
+      });
+    }
+  };
+  pie = new Chart(document.getElementById('pieChart'), {
+    type: 'doughnut',
+    data: { labels, datasets: [{ data: entries.map(([, v]) => Math.round(v)), backgroundColor: entries.map((_, i) => colors[i % colors.length]), borderWidth: 2, borderColor: document.body.classList.contains('dark') ? '#1b1f18' : '#ffffff' }] },
+    options: { responsive: true, maintainAspectRatio: false, cutout: '58%',
+      plugins: { legend: { position: 'right', labels: { usePointStyle: true, pointStyle: 'circle', boxWidth: 6, color: mutCol, font: { size: 11.5 }, padding: 10 } },
+        tooltip: { callbacks: { label: ctx => ' ' + fmt0(ctx.parsed) } } } },
+    plugins: [sliceLabels]
+  });
+}
+// ---- cash & savings ----
+let editingCashId = null;
+function startCashEdit(id) {
+  const c = cash.find(x => x.id === id); if (!c) return;
+  editingCashId = id;
+  document.getElementById('cName').value = c.name;
+  document.getElementById('cAmt').value = c.amount;
+  document.getElementById('btnCashSubmit').textContent = 'Save changes';
+  document.getElementById('btnCancelCashEdit').classList.remove('hidden');
+}
+function resetCashForm() {
+  editingCashId = null;
+  document.getElementById('cName').value = ''; document.getElementById('cAmt').value = '';
+  document.getElementById('btnCashSubmit').textContent = '+ Add account';
+  document.getElementById('btnCancelCashEdit').classList.add('hidden');
+}
+document.getElementById('btnCancelCashEdit').onclick = resetCashForm;
+document.getElementById('cashForm').onsubmit = e => {
+  e.preventDefault();
+  const name = document.getElementById('cName').value.trim();
+  const amount = parseFloat(document.getElementById('cAmt').value);
+  if (!name || isNaN(amount) || amount < 0) { alert('Fill in account and amount'); return; }
+  const c = { id: editingCashId || newId(), name, amount };
+  if (editingCashId) cash = cash.map(x => x.id === editingCashId ? c : x);
+  else cash.push(c);
+  save(CA_KEY, cash); resetCashForm(); renderCash(); renderInvest();
+};
+function renderCash() {
+  const el = document.getElementById('cashList');
+  if (!cash.length) { el.innerHTML = '<div class="emptybox">No accounts yet — add your bank balance to complete the picture</div>'; return; }
+  el.innerHTML = '<table class="shiftlist"><tr><th>Account</th><th class="num">Amount</th><th></th></tr>' +
+    cash.map(c => `<tr><td><b>${c.name}</b></td><td class="num">${fmt0(c.amount)}</td><td style="white-space:nowrap;text-align:right"><button class="icon cedit" data-id="${c.id}">✎</button><button class="icon crm" data-id="${c.id}" style="color:#c0392b">×</button></td></tr>`).join('') +
+    `</table><div class="mtotal"><span>${cash.length} accounts</span><span class="serif">${fmt0(cash.reduce((a, c) => a + c.amount, 0))}</span></div>`;
+  el.querySelectorAll('.crm').forEach(b => b.onclick = () => {
+    cash = cash.filter(x => x.id !== b.dataset.id);
+    if (editingCashId === b.dataset.id) resetCashForm();
+    save(CA_KEY, cash); renderCash(); renderInvest();
+  });
+  el.querySelectorAll('.cedit').forEach(b => b.onclick = () => startCashEdit(b.dataset.id));
+}
+// ---- AI portfolio review ----
+document.getElementById('btnAIInv').onclick = async () => {
+  const out = document.getElementById('aiOutInv'), btn = document.getElementById('btnAIInv');
+  out.classList.remove('hidden');
+  if (!window.cowork || !window.cowork.askClaude) { out.textContent = 'AI review only works inside Claude.'; return; }
+  btn.disabled = true; out.textContent = 'Reviewing your portfolio…';
+  try {
+    const val = holdings.reduce((a, h) => a + valDKK(h), 0);
+    const cashTotal = cash.reduce((a, c) => a + c.amount, 0);
+    const data = {
+      positions: holdings.map(h => ({
+        symbol: h.symbol, name: h.name, sector: h.sector, currency: h.currency, account: h.account,
+        value_dkk: Math.round(valDKK(h)),
+        weight_pct: val > 0 ? Math.round(valDKK(h) / val * 100) : 0,
+        pl_pct: costDKK(h) > 0 ? +((valDKK(h) - costDKK(h)) / costDKK(h) * 100).toFixed(1) : null
+      })),
+      total_invested_dkk: Math.round(val),
+      cash_accounts: cash.map(c => ({ name: c.name, dkk: c.amount })),
+      total_cash_dkk: Math.round(cashTotal),
+      monthly_income_estimate_dkk: payState ? Math.round(payState.r1.total) : 0,
+      monthly_recurring_costs_dkk: Math.round(recurring.reduce((a, r) => a + r.amount, 0))
+    };
+    const prompt = 'You are a blunt, practical investment adviser for Oscar, 20, a student in Copenhagen with part-time income, about to move into his own apartment (so he needs an emergency buffer). From the JSON: give 3-5 short, concrete observations in English about his portfolio — sector and currency concentration, position sizing, cash-to-invested ratio, and whether his emergency buffer is adequate given his fixed costs. Be specific with numbers. No preamble, just the points. This is general information, not personalized financial advice.';
+    const res = await window.cowork.askClaude(prompt, [JSON.stringify(data)]);
+    out.textContent = typeof res === 'string' ? res : (res && (res.text || res.content)) || JSON.stringify(res);
+  } catch (err) {
+    out.textContent = 'Review failed: ' + (err && err.message ? err.message : err);
+  }
+  btn.disabled = false;
+};
+
+// ================= SETTINGS =================
+const FIELDS = [
+  ['soWage', 'Søpavillonen: hourly rate (DKK)'], ['soPensionPct', 'Søpavillonen: pension (%)'],
+  ['rateUV', 'School: UV rate (DKK/h)'], ['rateIkkeUV', 'School: non-UV rate (DKK/h)'],
+  ['modulLen', 'School: paid time per module (h)'], ['modulWork', 'School: work time per module (h)'],
+  ['taxPct', 'Tax rate (%)'], ['frikortRest', 'Frikort left per latest payslip (DKK)'], ['frikortLimit', 'Frikort annual limit (DKK)'],
+  ['amPct', 'AM-bidrag (%)'], ['fpPct', 'Holiday pay (%)'],
+  ['ytdGross', 'Earned this year before tracker (DKK)'], ['ytdHours', 'Hours this year before tracker (h)']
+];
+function renderSettings() {
+  const g = document.getElementById('settingsGrid');
+  g.innerHTML = FIELDS.map(([k, l]) => `<div><label>${l}</label><input type="number" step="0.01" id="set_${k}" value="${settings[k]}"></div>`).join('') +
+    `<div style="grid-column:1/-1"><label>FMP API key (optional — enables live prices when opened in a normal browser)</label><input type="text" id="set_fmpKey" placeholder="from your dashboard at financialmodelingprep.com" value="${settings.fmpKey || ''}"></div>` +
+    `<div style="grid-column:1/-1"><label>Google Sheet link (optional — free live prices, no rate limit; used first, FMP is the fallback)</label>
+      <div style="display:flex;gap:8px;align-items:center">
+        <input type="text" id="set_sheetCsvUrl" placeholder="Share button → Anyone with the link → Copy link, paste it here" value="${settings.sheetCsvUrl || ''}" style="flex:1">
+        <button type="button" class="btn" id="btnTestSheet" style="font-size:12px;padding:9px 14px;white-space:nowrap">Test</button>
+      </div>
+      <div class="muted" style="margin-top:6px">Use the normal Share link (General access: Anyone with the link), not Publish to web — it gets converted automatically.</div>
+      <div class="muted" id="sheetTestResult" style="margin-top:6px"></div>
+    </div>` +
+    `<div style="grid-column:1/-1"><label>Investment account names</label><div class="settings-grid" style="margin-bottom:0">` +
+    settings.accNames.map((n, i) => `<div><input type="text" id="set_acc_${i}" value="${n}"></div>`).join('') +
+    `</div></div>`;
+  FIELDS.forEach(([k]) => {
+    document.getElementById('set_' + k).onchange = e => {
+      settings[k] = parseFloat(e.target.value) || 0;
+      saveSettings(); renderAll();
+    };
+  });
+  document.getElementById('set_fmpKey').onchange = e => {
+    settings.fmpKey = e.target.value.trim();
+    saveSettings();
+  };
+  document.getElementById('set_sheetCsvUrl').onchange = e => {
+    settings.sheetCsvUrl = e.target.value.trim();
+    sheetCache = null; // force a fresh fetch next refresh
+    saveSettings();
+  };
+  document.getElementById('btnTestSheet').onclick = async () => {
+    const urlEl = document.getElementById('set_sheetCsvUrl');
+    settings.sheetCsvUrl = urlEl.value.trim();
+    saveSettings();
+    const out = document.getElementById('sheetTestResult');
+    if (!settings.sheetCsvUrl) { out.textContent = 'Paste a URL first.'; return; }
+    out.textContent = 'Testing…';
+    try {
+      await fetchSheetPrices(true);
+      if (!sheetDebug || !sheetDebug.ok) {
+        out.innerHTML = '❌ ' + ((sheetDebug && sheetDebug.error) || 'Could not load the URL.');
+      } else if (!sheetDebug.headerOk) {
+        out.innerHTML = '❌ Loaded ' + sheetDebug.rowCount + ' rows, but no "Symbol" / "Live Price (native)" columns found.<br>First row: <code>' + sheetDebug.headerSample.replace(/</g, '&lt;') + '</code>';
+      } else if (sheetDebug.matched === 0) {
+        out.textContent = '⚠ Headers look right (' + sheetDebug.rowCount + ' rows) but 0 rows had a usable price — check the Live Price column isn\'t showing #N/A.';
+      } else {
+        out.textContent = '✅ Found ' + sheetDebug.matched + ' live prices out of ' + (sheetDebug.rowCount - 1) + ' rows (via ' + sheetDebug.triedUrl + ').';
+      }
+    } catch (err) {
+      out.textContent = '❌ ' + ((sheetDebug && sheetDebug.error) || (err && err.message) || String(err));
+    }
+  };
+  settings.accNames.forEach((_, i) => {
+    document.getElementById('set_acc_' + i).onchange = e => {
+      const oldName = settings.accNames[i];
+      const newName = e.target.value.trim();
+      if (!newName || newName === oldName) { e.target.value = oldName; return; }
+      holdings.forEach(p => { if (p.account === oldName) p.account = newName; });
+      settings.accNames[i] = newName;
+      saveSettings(); save(HO_KEY, holdings);
+      fillAccSelect(); renderAll();
+    };
+  });
+}
+document.getElementById('btnSettings').onclick = () => { renderSettings(); document.getElementById('settingsOverlay').classList.remove('hidden'); };
+document.getElementById('btnClose').onclick = () => document.getElementById('settingsOverlay').classList.add('hidden');
+document.getElementById('settingsOverlay').onclick = e => { if (e.target.id === 'settingsOverlay') e.target.classList.add('hidden'); };
+document.getElementById('btnExport').onclick = () => {
+  const blob = new Blob([JSON.stringify({ settings, shifts, expenses, recurring, holdings, cash, goals, fpCollected, nwHistory, sales }, null, 2)], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob); a.download = 'finances-backup.json'; a.click();
+};
+document.getElementById('importFile').onchange = e => {
+  const f = e.target.files[0]; if (!f) return;
+  const r = new FileReader();
+  r.onload = () => {
+    try {
+      const d = JSON.parse(r.result);
+      if (d.settings) settings = { ...DEFAULTS, ...d.settings };
+      if (d.shifts) shifts = d.shifts;
+      if (d.expenses) expenses = d.expenses;
+      if (d.recurring) recurring = d.recurring;
+      if (d.holdings) holdings = d.holdings;
+      if (d.cash) cash = d.cash;
+      if (d.goals) goals = d.goals;
+      if (d.fpCollected) fpCollected = d.fpCollected;
+      if (d.nwHistory) nwHistory = (d.nwHistory || []).map(x => x.ym ? { wk: x.ym + '-01', invested: x.invested, cash: x.cash, total: x.total } : x);
+      if (d.sales) sales = d.sales;
+      normalizeData(); // handle backups from older versions
+      saveSettings(); saveShifts(); save(EX_KEY, expenses); save(RE_KEY, recurring); save(HO_KEY, holdings); save(CA_KEY, cash); save(GO_KEY, goals); save(FPC_KEY, fpCollected); save(NW_KEY, nwHistory); save(SALES_KEY, sales);
+      fillAccSelect(); renderAll(); renderSettings();
+      alert('Import complete — ' + shifts.length + ' shifts, ' + holdings.length + ' positions, ' + expenses.length + ' expenses loaded.');
+    } catch (err) { alert('Import failed: ' + (err && err.message ? err.message : err)); }
+  };
+  r.readAsText(f);
+};
+
+// ================= INIT =================
+function renderAll() {
+  renderHero(); renderYearStats(); renderPayouts(); renderFrikort(); renderFp(); renderMonthView(); renderChart();
+  renderBudget(); renderInvest(); renderCash(); renderPie(); renderNW(); renderSales();
+}
+document.getElementById('fDate').value = iso(new Date());
+document.getElementById('eDate').value = iso(new Date());
+applyTheme();
+syncFormInputs();
+fillAccSelect();
+showPage(curPage);
+renderAll();
+// live-data bridge check: the bridge can load slightly after the page, so poll before warning
+let bridgeTries = 0;
+(function checkBridge() {
+  const warn = document.getElementById('liveWarn');
+  if (coworkReady()) { warn.classList.add('hidden'); return; }
+  if (++bridgeTries >= 6) {
+    const isFileProtocol = location.protocol === 'file:';
+    if (isFileProtocol && (settings.fmpKey || settings.sheetCsvUrl)) {
+      warn.classList.remove('hidden');
+      warn.innerHTML = '⚠️ <b>Opened as a local file (file://).</b> Some sites — including Google Sheets — block requests from a page opened this way, even with everything configured correctly, and it fails silently with "Failed to fetch". Fix: serve the file over a local address instead of double-clicking it. In a terminal, run <code>python3 -m http.server 8765</code> from the folder this file is in, then open <code>http://localhost:8765/salary-tracker.html</code> in your browser instead. Re-test the Sheet/FMP connection from there.';
+    } else if (settings.fmpKey) {
+      document.getElementById('invStatus').textContent = 'Browser mode: live prices via your FMP key · AI analysis needs the Claude app.';
+    } else {
+      warn.classList.remove('hidden');
+    }
+    return;
+  }
+  setTimeout(checkBridge, 500);
+})();
+</script>
+</body>
+</html>
