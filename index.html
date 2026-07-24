@@ -36,7 +36,7 @@ header, .tabbar, #page-lon, #page-budget { max-width: 760px; margin-left: auto; 
 .serif { font-family: Georgia, "Times New Roman", serif; }
 header { display: flex; justify-content: flex-end; align-items: center; margin-bottom: 14px; position: relative; }
 h1 { font-family: Georgia, serif; font-size: 19px; font-weight: 700; }
-header h1 { text-decoration: underline; font-style: italic; position: absolute; left: 50%; transform: translateX(-50%); white-space: nowrap; }
+header h1 { position: absolute; left: 50%; transform: translateX(-50%); white-space: nowrap; }
 .hbtns { display: flex; gap: 8px; }
 .pillbtn { border: 1px solid var(--line); background: var(--card); border-radius: 999px; padding: 6px 13px; font-size: 12px; cursor: pointer; color: var(--ink); box-shadow: var(--shadow); }
 .pillbtn:hover { filter: brightness(.97); }
@@ -345,14 +345,15 @@ tr.lotsrow td { background: var(--bg); padding: 6px 12px 10px; border-top: none;
         <div><label>Account</label><select id="hAcc"></select></div>
         <div><label>Quantity</label><input type="number" id="hQty" step="0.0001" min="0" placeholder="shares"></div>
         <div><label id="hBuyLabel">Buy price</label><input type="number" id="hBuy" step="0.01" min="0" placeholder="per share"></div>
+        <div><label>Purchase date</label><input type="date" id="hDate"></div>
       </div>
       <div class="formfoot">
         <button type="button" class="linkbtn hidden" id="btnCancelHoldEdit">cancel</button>
         <button type="submit" class="btn" id="btnHoldSubmit">+ Add position</button>
       </div>
     </form>
+    <div class="muted" id="invStatus" style="margin-top:8px"></div>
     <div class="muted" style="margin-top:16px">Buying the same stock again in the same account adds a lot to the existing position.</div>
-    <div class="muted" id="invStatus"></div>
   </div>
 
   <div class="card">
@@ -396,8 +397,12 @@ tr.lotsrow td { background: var(--bg); padding: 6px 12px 10px; border-top: none;
   </div>
 
   <div class="card">
-    <div class="lbl">Net worth over time</div>
+    <div class="updrow" style="margin-top:0">
+      <div class="lbl">Net worth over time</div>
+      <button class="btn" id="btnRebuildNw" style="font-size:12px;padding:6px 12px">↻ Rebuild from purchase dates</button>
+    </div>
     <div class="chartbox" id="nwBox" style="margin-top:10px;height:240px"><canvas id="nwChart"></canvas></div>
+    <div class="muted" id="nwRebuildStatus" style="margin-top:6px"></div>
   </div>
   </div><!-- /invrow -->
 
@@ -1437,14 +1442,16 @@ document.getElementById('holdForm').onsubmit = async e => {
   e.preventDefault();
   const qty = parseFloat(document.getElementById('hQty').value);
   const buy = parseFloat(document.getElementById('hBuy').value) || 0;
+  const dateVal = document.getElementById('hDate').value;
+  const purchaseDate = /^\d{4}-\d{2}-\d{2}$/.test(dateVal) ? dateVal : iso(new Date());
   const status = document.getElementById('invStatus');
   if (editingLot) {
     const pos = holdings.find(p => p.id === editingLot.posId);
     if (pos) {
       const lot = pos.lots.find(l => l.id === editingLot.lotId);
-      if (lot) { lot.qty = qty || lot.qty; lot.buy = buy; }
+      if (lot) { lot.qty = qty || lot.qty; lot.buy = buy; lot.date = purchaseDate; }
     }
-    save(HO_KEY, holdings); resetHoldForm(); renderInvest(); renderPie();
+    save(HO_KEY, holdings); resetHoldForm(); renderInvest(); renderPie(); rebuildNwHistory();
     return;
   }
   if (!selStock) { alert('Search and select a stock first'); return; }
@@ -1453,16 +1460,16 @@ document.getElementById('holdForm').onsubmit = async e => {
   const btn = document.getElementById('btnHoldSubmit');
   const existing = holdings.find(p => p.symbol === selStock.symbol && p.account === account);
   if (existing) {
-    existing.lots.push({ id: newId(), qty, buy, date: iso(new Date()) });
+    existing.lots.push({ id: newId(), qty, buy, date: purchaseDate });
     save(HO_KEY, holdings);
     selStock = null; renderSel();
     document.getElementById('hQty').value = ''; document.getElementById('hBuy').value = '';
     status.textContent = 'Added as a new lot under ' + existing.symbol + ' (' + account + ').';
-    renderInvest(); renderPie();
+    renderInvest(); renderPie(); rebuildNwHistory();
     return;
   }
   btn.disabled = true; status.textContent = 'Fetching price, sector and FX…';
-  const h = { id: newId(), symbol: selStock.symbol, name: selStock.name, type: selStock.type, currency: selStock.currency, account, price: 0, chg: 0, sector: null, fx: 1, updated: null, lots: [{ id: newId(), qty, buy, date: iso(new Date()) }] };
+  const h = { id: newId(), symbol: selStock.symbol, name: selStock.name, type: selStock.type, currency: selStock.currency, account, price: 0, chg: 0, sector: null, fx: 1, updated: null, lots: [{ id: newId(), qty, buy, date: purchaseDate }] };
   try {
     const p = await fetchProfile(h.symbol);
     h.price = p.price; h.chg = p.chg; h.sector = p.sector;
@@ -1490,11 +1497,12 @@ document.getElementById('holdForm').onsubmit = async e => {
   document.getElementById('hQty').value = ''; document.getElementById('hBuy').value = '';
   if (status.textContent.startsWith('Fetching')) status.textContent = '';
   btn.disabled = false;
-  renderInvest(); renderPie();
+  renderInvest(); renderPie(); rebuildNwHistory();
 };
 function resetHoldForm() {
   editingLot = null;
   document.getElementById('hQty').value = ''; document.getElementById('hBuy').value = '';
+  document.getElementById('hDate').value = iso(new Date());
   document.getElementById('btnHoldSubmit').textContent = '+ Add position';
   document.getElementById('btnCancelHoldEdit').classList.add('hidden');
   document.getElementById('hBuyLabel').textContent = 'Buy price';
@@ -1506,6 +1514,7 @@ function startLotEdit(posId, lotId) {
   editingLot = { posId, lotId };
   document.getElementById('hQty').value = lot.qty;
   document.getElementById('hBuy').value = lot.buy;
+  document.getElementById('hDate').value = lot.date || iso(new Date());
   document.getElementById('hBuyLabel').textContent = 'Buy price (' + pos.currency + ')';
   document.getElementById('btnHoldSubmit').textContent = 'Save lot · ' + pos.symbol;
   document.getElementById('btnCancelHoldEdit').classList.remove('hidden');
@@ -1575,6 +1584,7 @@ async function doRefresh() {
   renderInvest(); renderPie();
 }
 document.getElementById('btnRefresh').onclick = doRefresh;
+document.getElementById('btnRebuildNw').onclick = rebuildNwHistory;
 // auto-refresh: when opening the Invest tab (if prices >15 min old) and every 15 min while open
 function autoRefresh() {
   if (!holdings.length || !(coworkReady() || settings.fmpKey)) return;
@@ -1599,6 +1609,56 @@ function snapshotNetWorth(invested, cashTotal) {
   if (i >= 0) nwHistory[i] = snap; else nwHistory.push(snap);
   nwHistory.sort((a, b) => a.wk.localeCompare(b.wk));
   save(NW_KEY, nwHistory);
+}
+// Rebuilds older points on the Net Worth Over Time chart using each position's purchase date(s)
+// and historical prices, so the chart shows real growth since you actually bought things instead
+// of only starting from whenever you began using the tracker. Never touches/overwrites a date
+// that already has a real snapshot recorded — it only fills in the gaps before that.
+// Cash has no history to pull from, so backfilled points use today's cash total as a flat estimate.
+let rebuildingNw = false;
+async function rebuildNwHistory() {
+  if (rebuildingNw || !holdings.length) return;
+  let earliest = null;
+  holdings.forEach(p => p.lots.forEach(l => { if (l.date && (!earliest || l.date < earliest)) earliest = l.date; }));
+  if (!earliest) return;
+  rebuildingNw = true;
+  const statusEl = document.getElementById('nwRebuildStatus');
+  if (statusEl) statusEl.textContent = 'Rebuilding from purchase history…';
+  try {
+    const symbols = [...new Set(holdings.map(p => p.symbol))];
+    const histories = {};
+    for (const s of symbols) { try { histories[s] = await fetchHistory(s); } catch { histories[s] = []; } }
+    const cashTotal = cash.reduce((a, c) => a + c.amount, 0);
+    const start = new Date(earliest + 'T12:00:00');
+    const now = new Date();
+    const points = [];
+    const d = new Date(start.getFullYear(), start.getMonth(), 1);
+    while (d < now) { points.push(iso(d)); d.setMonth(d.getMonth() + 1); }
+    points.push(iso(new Date(now.getFullYear(), now.getMonth(), 1)));
+    const existingKeys = new Set(nwHistory.map(x => x.wk));
+    points.forEach(wk => {
+      if (existingKeys.has(wk)) return; // don't clobber a real recorded snapshot
+      let invested = 0;
+      holdings.forEach(p => {
+        const qtyHeld = p.lots.filter(l => !l.date || l.date <= wk).reduce((a, l) => a + l.qty, 0);
+        if (qtyHeld <= 0) return;
+        const series = histories[p.symbol] || [];
+        const pt = closestClose(series, wk);
+        const price = pt ? pt.close : (p.price || 0);
+        invested += qtyHeld * price * (p.fx || 1);
+      });
+      if (invested <= 0 && cashTotal <= 0) return;
+      nwHistory.push({ wk, invested: Math.round(invested), cash: Math.round(cashTotal), total: Math.round(invested + cashTotal) });
+    });
+    nwHistory.sort((a, b) => a.wk.localeCompare(b.wk));
+    save(NW_KEY, nwHistory);
+    renderNW();
+    if (statusEl) statusEl.textContent = '';
+  } catch (err) {
+    if (statusEl) statusEl.textContent = 'Could not rebuild history: ' + (err && err.message ? err.message : err);
+  } finally {
+    rebuildingNw = false;
+  }
 }
 let nwChart = null;
 function renderNW() {
@@ -2081,6 +2141,7 @@ async function loadAllData() {
 function boot() {
   document.getElementById('fDate').value = iso(new Date());
   document.getElementById('eDate').value = iso(new Date());
+  document.getElementById('hDate').value = iso(new Date());
   applyTheme();
   syncFormInputs();
   fillAccSelect();
