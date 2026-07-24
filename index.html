@@ -177,6 +177,9 @@ tr.lotsrow td { background: var(--bg); padding: 6px 12px 10px; border-top: none;
 .authwrap { max-width: 380px; margin: 60px auto 0; }
 .authcard { padding: 22px 22px 18px; }
 .synctoast { position: fixed; left: 50%; bottom: 18px; transform: translateX(-50%); background: var(--red); color: #fff; padding: 10px 16px; border-radius: 10px; font-size: 12.5px; z-index: 100; box-shadow: 0 4px 16px rgba(0,0,0,.2); max-width: 90%; }
+.undotoast { position: fixed; left: 50%; bottom: 18px; transform: translateX(-50%); background: var(--ink); color: var(--card); padding: 10px 16px; border-radius: 10px; font-size: 12.5px; z-index: 100; box-shadow: 0 4px 16px rgba(0,0,0,.2); max-width: 90%; display: flex; align-items: center; gap: 4px; }
+.undotoast button { background: none; border: none; color: inherit; font-weight: 700; font-size: 12.5px; cursor: pointer; padding: 0 0 0 12px; text-decoration: underline; }
+.undotoast button.dismiss { text-decoration: none; opacity: .65; font-weight: 500; }
 </style>
 </head>
 <body>
@@ -197,6 +200,7 @@ tr.lotsrow td { background: var(--bg); padding: 6px 12px 10px; border-top: none;
   </div>
 </div>
 <div id="syncToast" class="hidden synctoast"></div>
+<div id="undoToast" class="hidden undotoast"></div>
 <div id="app" class="hidden">
 <header>
   <h1>Finance Tracker</h1>
@@ -570,6 +574,18 @@ function syncError(err) {
     clearTimeout(el._t); el._t = setTimeout(() => el.classList.add('hidden'), 6000);
   }
   console.error('Supabase sync error:', err);
+}
+// shown after a straight-up delete (the X button, not a sell) so a mis-click is easy to undo.
+// restoreFn does the actual undo; the toast auto-hides after 10s if nobody clicks anything.
+function showUndoToast(message, restoreFn) {
+  const el = document.getElementById('undoToast');
+  if (!el) return;
+  clearTimeout(el._t);
+  el.innerHTML = `<span>${message}</span><button type="button" id="undoBtn">Undo</button><button type="button" id="dismissUndoBtn" class="dismiss">Dismiss</button>`;
+  el.classList.remove('hidden');
+  document.getElementById('undoBtn').onclick = () => { restoreFn(); el.classList.add('hidden'); clearTimeout(el._t); };
+  document.getElementById('dismissUndoBtn').onclick = () => { el.classList.add('hidden'); clearTimeout(el._t); };
+  el._t = setTimeout(() => el.classList.add('hidden'), 10000);
 }
 
 const CATS = [
@@ -1512,8 +1528,9 @@ document.getElementById('holdForm').onsubmit = async e => {
   const btn = document.getElementById('btnHoldSubmit');
   const existing = holdings.find(p => p.symbol === selStock.symbol && p.account === account);
   if (existing) {
-    existing.lots.push({ id: newId(), qty, buy: priceVal, date: txnDate });
-    logBuy(existing.symbol, existing.name, account, existing.currency, qty, priceVal, txnDate);
+    const newLotId = newId();
+    existing.lots.push({ id: newLotId, qty, buy: priceVal, date: txnDate });
+    logBuy(existing.symbol, existing.name, account, existing.currency, qty, priceVal, txnDate, existing.id, newLotId);
     save(HO_KEY, holdings);
     selStock = null; renderSel();
     document.getElementById('hQty').value = ''; document.getElementById('hBuy').value = '';
@@ -1522,7 +1539,8 @@ document.getElementById('holdForm').onsubmit = async e => {
     return;
   }
   btn.disabled = true; status.textContent = 'Fetching price, sector and FX…';
-  const h = { id: newId(), symbol: selStock.symbol, name: selStock.name, type: selStock.type, currency: selStock.currency, account, price: 0, chg: 0, sector: null, fx: 1, updated: null, lots: [{ id: newId(), qty, buy: priceVal, date: txnDate }] };
+  const newPosId = newId(), newLotId = newId();
+  const h = { id: newPosId, symbol: selStock.symbol, name: selStock.name, type: selStock.type, currency: selStock.currency, account, price: 0, chg: 0, sector: null, fx: 1, updated: null, lots: [{ id: newLotId, qty, buy: priceVal, date: txnDate }] };
   try {
     const p = await fetchProfile(h.symbol);
     h.price = p.price; h.chg = p.chg; h.sector = p.sector;
@@ -1545,7 +1563,7 @@ document.getElementById('holdForm').onsubmit = async e => {
   h.fx = await fxRate(h.currency);
   h.updated = Date.now();
   holdings.push(h);
-  logBuy(h.symbol, h.name, account, h.currency, qty, priceVal, txnDate);
+  logBuy(h.symbol, h.name, account, h.currency, qty, priceVal, txnDate, newPosId, newLotId);
   save(HO_KEY, holdings);
   selStock = null; renderSel();
   document.getElementById('hQty').value = ''; document.getElementById('hBuy').value = '';
@@ -1839,18 +1857,38 @@ function renderInvest() {
   el.querySelectorAll('.prm').forEach(b => b.onclick = () => {
     const pos = holdings.find(p => p.id === b.dataset.id);
     if (!pos || !confirm('Delete ' + pos.symbol + ' (' + pos.account + ') and all its lots?')) return;
+    const removedBuyEntries = buyLog.filter(x => x.posId === pos.id);
     holdings = holdings.filter(p => p.id !== b.dataset.id);
+    buyLog = buyLog.filter(x => x.posId !== pos.id);
     if (editingLot && editingLot.posId === b.dataset.id) resetHoldForm();
-    save(HO_KEY, holdings); renderInvest(); renderPie();
+    save(HO_KEY, holdings); save(BUY_KEY, buyLog); renderInvest(); renderPie();
+    showUndoToast('Deleted ' + pos.symbol + ' (' + pos.account + ').', () => {
+      holdings.push(pos);
+      buyLog.push(...removedBuyEntries);
+      save(HO_KEY, holdings); save(BUY_KEY, buyLog);
+      renderInvest(); renderPie(); rebuildNwHistory();
+    });
   });
   el.querySelectorAll('.ledit').forEach(b => b.onclick = () => startLotEdit(b.dataset.pos, b.dataset.lot));
   el.querySelectorAll('.lrm').forEach(b => b.onclick = () => {
     const pos = holdings.find(p => p.id === b.dataset.pos);
     if (!pos) return;
+    const lot = pos.lots.find(l => l.id === b.dataset.lot);
+    if (!lot) return;
+    const removedBuyEntries = buyLog.filter(x => x.lotId === lot.id);
     pos.lots = pos.lots.filter(l => l.id !== b.dataset.lot);
-    if (!pos.lots.length) holdings = holdings.filter(p => p.id !== pos.id);
+    const posGone = !pos.lots.length;
+    if (posGone) holdings = holdings.filter(p => p.id !== pos.id);
+    buyLog = buyLog.filter(x => x.lotId !== lot.id);
     if (editingLot && editingLot.lotId === b.dataset.lot) resetHoldForm();
-    save(HO_KEY, holdings); renderInvest(); renderPie();
+    save(HO_KEY, holdings); save(BUY_KEY, buyLog); renderInvest(); renderPie();
+    showUndoToast('Deleted a purchase of ' + pos.symbol + '.', () => {
+      pos.lots.push(lot);
+      if (posGone) holdings.push(pos);
+      buyLog.push(...removedBuyEntries);
+      save(HO_KEY, holdings); save(BUY_KEY, buyLog);
+      renderInvest(); renderPie(); rebuildNwHistory();
+    });
   });
   el.querySelectorAll('.lsell').forEach(b => b.onclick = () => sellLot(b.dataset.pos, b.dataset.lot));
 }
@@ -1958,8 +1996,10 @@ function sellFifo(pos, qtyToSell, sellPrice, sellDate, fx) {
   }
   pos.lots = pos.lots.filter(l => l.qty > 1e-9);
 }
-function logBuy(symbol, name, account, currency, qty, price, date) {
-  buyLog.push({ id: newId(), symbol, name, account, currency, qty, price, date });
+// posId/lotId link a history entry back to the exact position/lot it came from, so straight-up
+// deleting a position or lot (not selling it) can precisely remove its history entry too.
+function logBuy(symbol, name, account, currency, qty, price, date, posId, lotId) {
+  buyLog.push({ id: newId(), symbol, name, account, currency, qty, price, date, posId, lotId });
   save(BUY_KEY, buyLog);
 }
 function fillSellPosSelect() {
