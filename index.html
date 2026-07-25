@@ -261,6 +261,12 @@ tr.lotsrow td { background: var(--bg); padding: 6px 12px 10px; border-top: none;
     <div id="monthBody"></div>
     <div class="chartbox" id="chartBox"><canvas id="hoursChart"></canvas></div>
   </div>
+
+  <div class="card">
+    <div class="lbl">Yearly summary</div>
+    <div class="muted" style="margin-top:6px">Total earned and estimated tax paid, per year. Tax is estimated by simulating your frikort allowance depleting month by month — real amounts may differ slightly.</div>
+    <div id="yearlySummary" style="margin-top:12px"></div>
+  </div>
 </div>
 
 <!-- ============ BUDGET ============ -->
@@ -268,6 +274,12 @@ tr.lotsrow td { background: var(--bg); padding: 6px 12px 10px; border-top: none;
   <div class="card hero" id="budHero"></div>
   <div class="statrow" id="budStats"></div>
   <div class="card" id="budBreakdown"></div>
+
+  <div class="card">
+    <div class="lbl">Spending trend</div>
+    <div class="muted" style="margin-top:6px">Spending by category, last 6 months.</div>
+    <div class="chartbox" id="budTrendBox" style="height:260px;margin-top:10px"><canvas id="budTrendChart"></canvas></div>
+  </div>
 
   <div class="card">
     <div class="lbl">Log expense</div>
@@ -398,6 +410,25 @@ tr.lotsrow td { background: var(--bg); padding: 6px 12px 10px; border-top: none;
     <div id="historyList" style="margin-top:12px"></div>
   </div>
 
+  <div class="card" id="divCard">
+    <div class="lbl">Dividends</div>
+    <div class="muted" style="margin-top:6px">The "invisible cash" — payouts from stocks and funds you hold.</div>
+    <form id="divForm" style="margin-top:12px">
+      <div class="fields">
+        <div><label>Symbol</label><input type="text" id="dSymbol" placeholder="e.g. NOVO-B.CO"></div>
+        <div id="dAccWrap"><label>Account</label><select id="dAcc"></select></div>
+        <div><label>Amount</label><input type="number" id="dAmount" step="0.01" min="0" placeholder="total received"></div>
+        <div><label>Currency</label><input type="text" id="dCurrency" placeholder="DKK" value="DKK"></div>
+        <div><label>Date</label><input type="date" id="dDate"></div>
+      </div>
+      <div class="formfoot">
+        <button type="submit" class="btn" id="btnDivSubmit">+ Log dividend</button>
+      </div>
+    </form>
+    <div id="divSummary" style="margin-top:14px"></div>
+    <div id="divList" style="margin-top:12px"></div>
+  </div>
+
   <div class="invrow">
   <div class="card">
     <div class="lbl">Cash & savings</div>
@@ -435,6 +466,12 @@ tr.lotsrow td { background: var(--bg); padding: 6px 12px 10px; border-top: none;
     <button class="btn" id="btnExport" style="font-size:12px;padding:7px 12px">Export data</button>
     <input type="file" id="importFile" accept=".json" style="width:auto;display:inline-block;margin-left:8px">
     <div style="border-top:1px solid var(--line); margin-top:16px; padding-top:14px;">
+      <div class="muted" style="margin-bottom:8px">Import your Saxo positions, sales &amp; dividends from a parsed export file. Safe to re-run — already-imported records are skipped, nothing gets duplicated.</div>
+      <button type="button" class="btn" id="btnSaxoImport" style="font-size:12px;padding:7px 12px">Import Saxo data</button>
+      <input type="file" id="saxoImportFile" accept=".json" style="width:0;height:0;opacity:0;position:absolute">
+      <div class="muted" id="saxoImportStatus" style="margin-top:8px"></div>
+    </div>
+    <div style="border-top:1px solid var(--line); margin-top:16px; padding-top:14px;">
       <div class="muted" style="margin-bottom:8px">Signed in as <b id="acctEmail"></b> — your data syncs to the cloud automatically.</div>
       <button class="btn" id="btnSignout" style="font-size:12px;padding:7px 12px;background:var(--red)">Sign out</button>
     </div>
@@ -461,6 +498,7 @@ const EX_KEY = 'lontracker_expenses_v1', RE_KEY = 'lontracker_recurring_v1';
 const HO_KEY = 'lontracker_holdings_v1', GO_KEY = 'lontracker_goals_v1', TAB_KEY = 'lontracker_tab', FX_KEY = 'lontracker_fx_v1';
 const CA_KEY = 'lontracker_cash_v1', SALES_KEY = 'lontracker_sales_v1', NW_KEY = 'lontracker_networth_v1';
 const FPC_KEY = 'lontracker_fpcollected_v1', PERF_KEY = 'lontracker_perfcache_v1', BUY_KEY = 'lontracker_buylog_v1';
+const DIV_KEY = 'lontracker_dividends_v1';
 const DEFAULTS = {
   soWage: 125, soPensionPct: 0,
   rateUV: 256.81, rateIkkeUV: 174.58,
@@ -487,6 +525,7 @@ let holdings = readLocal(HO_KEY, []).filter(h => h && h.symbol); // drop old-for
 let cash = readLocal(CA_KEY, []);
 let sales = readLocal(SALES_KEY, []);
 let buyLog = readLocal(BUY_KEY, []);
+let dividends = readLocal(DIV_KEY, []);
 let nwHistory = readLocal(NW_KEY, []);
 let fpCollected = readLocal(FPC_KEY, { soB: 0, soN: 0, skB: 0, skN: 0, totalN: 0, last: null });
 let goals = readLocal(GO_KEY, []); // legacy, no longer shown — kept local, not synced
@@ -497,7 +536,7 @@ let perfCache = readLocal(PERF_KEY, {}); // historical-price cache — stays loc
 const SYNC_KEYS = {
   [S_KEY]: 'settings', [SH_KEY]: 'shifts', [EX_KEY]: 'expenses', [RE_KEY]: 'recurring',
   [HO_KEY]: 'holdings', [CA_KEY]: 'cash', [SALES_KEY]: 'sales', [NW_KEY]: 'nwHistory', [FPC_KEY]: 'fpCollected',
-  [BUY_KEY]: 'buyLog'
+  [BUY_KEY]: 'buyLog', [DIV_KEY]: 'dividends'
 };
 const pushTimers = {};
 // the current in-memory value behind a given localStorage key (read live, at push time)
@@ -513,6 +552,7 @@ function syncValue(k) {
     case NW_KEY: return nwHistory;
     case FPC_KEY: return fpCollected;
     case BUY_KEY: return buyLog;
+    case DIV_KEY: return dividends;
   }
 }
 // save(key, value) keeps its original signature so no existing call site changes. It always writes
@@ -551,6 +591,7 @@ function applyCloudValue(rowKey, value) {
     case 'nwHistory': nwHistory = value || []; break;
     case 'fpCollected': fpCollected = value || { soB: 0, soN: 0, skB: 0, skN: 0, totalN: 0, last: null }; break;
     case 'buyLog': buyLog = value || []; break;
+    case 'dividends': dividends = value || []; break;
     default: return;
   }
   // mirror into the local cache directly (without re-triggering a cloud push)
@@ -562,7 +603,7 @@ function applyCloudValue(rowKey, value) {
 function clearLocalSyncedData() {
   Object.keys(SYNC_KEYS).forEach(k => { try { localStorage.removeItem(k); } catch (e) {} });
   settings = { ...DEFAULTS };
-  shifts = []; expenses = []; recurring = []; holdings = []; cash = []; sales = []; nwHistory = []; buyLog = [];
+  shifts = []; expenses = []; recurring = []; holdings = []; cash = []; sales = []; nwHistory = []; buyLog = []; dividends = [];
   fpCollected = { soB: 0, soN: 0, skB: 0, skN: 0, totalN: 0, last: null };
 }
 function syncError(err) {
@@ -660,6 +701,8 @@ const newId = () => Date.now() + '' + Math.random().toString(36).slice(2, 6);
 function fillAccSelect() {
   const sel = document.getElementById('hAcc');
   if (sel) sel.innerHTML = settings.accNames.map(a => `<option>${a}</option>`).join('');
+  const dsel = document.getElementById('dAcc');
+  if (dsel) dsel.innerHTML = settings.accNames.map(a => `<option>${a}</option>`).join('');
 }
 // normalizes data from any older version of the tracker (runs at load and after import)
 function normalizeData() {
@@ -1014,6 +1057,39 @@ function renderYearStats() {
     <div class="stat"><div class="lbl">Total hours</div><div class="v serif">${fmtH(hours)}</div><div class="s">${hours > 0 ? Math.round(gross / hours) + ' DKK/h avg' : '—'}</div></div>
     <div class="stat"><div class="lbl">Avg per month</div><div class="v serif">${fmt0(gross / months)}</div><div class="s">over ${months} months</div></div>`;
 }
+// Total earned + estimated tax paid, one row per calendar year that has shifts logged.
+// Tax per year is simulated by walking the year's months in order, depleting a fresh frikort
+// allowance (settings.frikortLimit) each January, same mechanic as the live payout calc — so it's
+// an estimate, not a replay of your real payslip withholding.
+function yearlyTaxEstimate(y) {
+  let frikortLeft = settings.frikortLimit;
+  let tax = 0;
+  for (let m = 0; m < 12; m++) {
+    const monthShifts = shifts.filter(s => { const d = new Date(s.date); return d.getFullYear() === y && d.getMonth() === m; });
+    const cSo = calcSo(monthShifts.filter(s => s.job === 'so'));
+    const cSk = calcSkole(monthShifts.filter(s => s.job === 'skole'));
+    const totalA = cSo.aIndkomst + cSk.aIndkomst;
+    tax += Math.round(Math.max(0, totalA - frikortLeft) * settings.taxPct / 100);
+    frikortLeft = Math.max(0, frikortLeft - totalA);
+  }
+  return tax;
+}
+function renderYearlySummary() {
+  const el = document.getElementById('yearlySummary');
+  if (!el) return;
+  const years = [...new Set(shifts.map(s => new Date(s.date).getFullYear()))].sort((a, b) => b - a);
+  if (!years.length) { el.innerHTML = '<div class="emptybox">Log some shifts to see yearly totals</div>'; return; }
+  const curYear = new Date().getFullYear();
+  let html = `<table class="shiftlist"><tr><th>Year</th><th class="num">Earned</th><th class="num">Est. tax</th></tr>`;
+  years.forEach(y => {
+    const yearShifts = shifts.filter(s => new Date(s.date).getFullYear() === y);
+    const gross = yearShifts.reduce((a, s) => a + s.hours * rateOf(s), 0) + (y === curYear ? settings.ytdGross : 0);
+    const tax = yearlyTaxEstimate(y);
+    html += `<tr><td><b>${y}</b></td><td class="num"><b>${fmt0(gross)}</b></td><td class="num" style="color:var(--red)">${tax > 0 ? '− ' + fmt0(tax) : '0 (frikort)'}</td></tr>`;
+  });
+  html += '</table>';
+  el.innerHTML = html;
+}
 function renderPayouts() {
   const { r1, r2 } = payState;
   const jobBlock = (job, gross, net, hrs) => gross > 0 ? `
@@ -1280,6 +1356,7 @@ function renderBudget() {
     }`;
 
   document.getElementById('bCur').textContent = MDF[m] + ' ' + y;
+  renderBudgetTrend();
 
   // recurring list
   const rEl = document.getElementById('recList');
@@ -1316,6 +1393,45 @@ function renderBudget() {
     });
     exEl.querySelectorAll('.eedit').forEach(b => b.onclick = () => startExpEdit(b.dataset.id));
   }
+}
+// Stacked bar of spending by category across the last 6 months (manual expenses + recurring costs
+// active in each month), so trends across categories are easy to spot at a glance.
+let budTrendChart = null;
+const CATCOLORS = ['#c0392b', '#1d8a5f', '#2563eb', '#e0982a', '#8e44ad', '#16a3a3', '#7f8c8d'];
+function renderBudgetTrend() {
+  const box = document.getElementById('budTrendBox');
+  if (!box) return;
+  if (budTrendChart) { budTrendChart.destroy(); budTrendChart = null; }
+  if (typeof Chart === 'undefined') { box.classList.add('hidden'); return; }
+  box.classList.remove('hidden');
+  box.innerHTML = '<canvas id="budTrendChart"></canvas>';
+  const canvas = document.getElementById('budTrendChart');
+  const months = [];
+  for (let i = 5; i >= 0; i--) {
+    let y = now0.getFullYear(), m = now0.getMonth() - i;
+    while (m < 0) { m += 12; y--; }
+    months.push({ y, m });
+  }
+  const catTotal = (y, m, k) => {
+    const manual = expenses.filter(e => e.cat === k && inMonth(e.date, y, m)).reduce((a, e) => a + e.amount, 0);
+    const rec = recurringFor(y, m).filter(r => r.cat === k).reduce((a, r) => a + r.amount, 0);
+    return manual + rec;
+  };
+  const mutCol = document.body.classList.contains('dark') ? '#8b8d80' : '#9a998f';
+  budTrendChart = new Chart(canvas, {
+    type: 'bar',
+    data: {
+      labels: months.map(({ y, m }) => MD[m] + (y !== now0.getFullYear() ? " '" + String(y).slice(2) : '')),
+      datasets: CATS.map(([k, name], i) => ({
+        label: name, data: months.map(({ y, m }) => catTotal(y, m, k)), backgroundColor: CATCOLORS[i % CATCOLORS.length], stack: 'a', borderRadius: 3
+      }))
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      scales: { x: { stacked: true, grid: { display: false }, ticks: { color: mutCol } }, y: { stacked: true, border: { display: false }, ticks: { color: mutCol } } },
+      plugins: { legend: { position: 'bottom', labels: { usePointStyle: true, pointStyle: 'circle', boxWidth: 5, color: mutCol, font: { size: 11 } } } }
+    }
+  });
 }
 document.getElementById('bPrev').onclick = () => { budgetView.m--; if (budgetView.m < 0) { budgetView.m = 11; budgetView.y--; } renderBudget(); };
 document.getElementById('bNext').onclick = () => { budgetView.m++; if (budgetView.m > 11) { budgetView.m = 0; budgetView.y++; } renderBudget(); };
@@ -1792,6 +1908,7 @@ function renderInvest() {
 
   fillSellPosSelect();
   renderHistory();
+  renderDividends();
 
   const upd = holdings.reduce((a, p) => Math.max(a, p.updated || 0), 0);
   document.getElementById('pricesUpdated').textContent = upd ? 'As of ' + new Date(upd).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) + (lastRefreshMeta ? ' · ' + lastRefreshMeta : '') : '';
@@ -2044,6 +2161,63 @@ function renderHistory() {
     });
   });
 }
+// Dividends card: total received + a chronological list. Same delete-with-undo pattern as History log.
+function renderDividends() {
+  const el = document.getElementById('divList');
+  const sumEl = document.getElementById('divSummary');
+  if (!el || !sumEl) return;
+  if (!dividends.length) {
+    sumEl.innerHTML = '';
+    el.innerHTML = '<div class="emptybox">No dividends logged yet — log one above, or import your Saxo history.</div>';
+    return;
+  }
+  const total = dividends.reduce((a, d) => a + d.amount * (d.fx || 1), 0);
+  const thisYear = String(new Date().getFullYear());
+  const totalYear = dividends.filter(d => d.date && d.date.slice(0, 4) === thisYear).reduce((a, d) => a + d.amount * (d.fx || 1), 0);
+  sumEl.innerHTML = `<div class="prow total"><span class="k">Total received</span><span class="tilkonto">${fmt0(total)}</span></div>
+    <div class="prow"><span class="k">${thisYear} so far</span><span class="tilkonto">${fmt0(totalYear)}</span></div>`;
+  const sorted = [...dividends].sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+  let html = `<table class="shiftlist"><tr><th>Date</th><th>Position</th><th class="num">Amount</th><th></th></tr>`;
+  sorted.forEach(d => {
+    html += `<tr>
+      <td class="muted">${d.date ? dstrY(new Date(d.date + 'T12:00:00')) : '—'}</td>
+      <td><b>${d.symbol}</b><br><span class="muted" style="font-size:11px">${d.account || ''}</span></td>
+      <td class="num"><b>${fmt0(d.amount * (d.fx || 1))}</b><br><span class="muted" style="font-size:11px">${(d.amount || 0).toLocaleString('da-DK', { maximumFractionDigits: 2 })} ${d.currency}</span></td>
+      <td><button class="icon drm" data-id="${d.id}" title="Delete" style="color:#c0392b">×</button></td>
+    </tr>`;
+  });
+  html += '</table>';
+  el.innerHTML = html;
+  el.querySelectorAll('.drm').forEach(b => b.onclick = () => {
+    const div = dividends.find(x => x.id === b.dataset.id);
+    if (!div) return;
+    dividends = dividends.filter(x => x.id !== div.id);
+    save(DIV_KEY, dividends); renderDividends();
+    showUndoToast('Deleted dividend record for ' + div.symbol + '.', () => {
+      dividends.push(div); save(DIV_KEY, dividends); renderDividends();
+    });
+  });
+}
+document.getElementById('divForm').onsubmit = async e => {
+  e.preventDefault();
+  const symbol = document.getElementById('dSymbol').value.trim().toUpperCase();
+  const account = document.getElementById('dAcc').value;
+  const amount = parseFloat(document.getElementById('dAmount').value);
+  const currency = (document.getElementById('dCurrency').value.trim() || 'DKK').toUpperCase();
+  const date = document.getElementById('dDate').value;
+  if (!symbol || !amount || !date) { alert('Fill in symbol, amount and date.'); return; }
+  const match = holdings.find(p => p.symbol.toUpperCase() === symbol);
+  const btn = document.getElementById('btnDivSubmit');
+  btn.disabled = true; btn.textContent = 'Adding…';
+  const fx = await fxRate(currency);
+  dividends.push({ id: newId(), symbol, name: match ? match.name : symbol, currency, account, amount, date, fx });
+  save(DIV_KEY, dividends);
+  document.getElementById('divForm').reset();
+  document.getElementById('dCurrency').value = 'DKK';
+  fillAccSelect();
+  btn.disabled = false; btn.textContent = '+ Log dividend';
+  renderDividends();
+};
 // Sells `qty` shares from a position's oldest lots first (FIFO). Used by Sell mode in Add Position,
 // where the user just knows they sold some shares but not which specific purchase they came from.
 // Splits across multiple lots as needed and logs one sale record per lot touched, so realized P&L
@@ -2298,7 +2472,7 @@ document.getElementById('btnSettings').onclick = () => { renderSettings(); docum
 document.getElementById('btnClose').onclick = () => document.getElementById('settingsOverlay').classList.add('hidden');
 document.getElementById('settingsOverlay').onclick = e => { if (e.target.id === 'settingsOverlay') e.target.classList.add('hidden'); };
 document.getElementById('btnExport').onclick = () => {
-  const blob = new Blob([JSON.stringify({ settings, shifts, expenses, recurring, holdings, cash, goals, fpCollected, nwHistory, sales, buyLog }, null, 2)], { type: 'application/json' });
+  const blob = new Blob([JSON.stringify({ settings, shifts, expenses, recurring, holdings, cash, goals, fpCollected, nwHistory, sales, buyLog, dividends }, null, 2)], { type: 'application/json' });
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob); a.download = 'finances-backup.json'; a.click();
 };
@@ -2319,18 +2493,70 @@ document.getElementById('importFile').onchange = e => {
       if (d.nwHistory) nwHistory = (d.nwHistory || []).map(x => x.ym ? { wk: x.ym + '-01', invested: x.invested, cash: x.cash, total: x.total } : x);
       if (d.sales) sales = d.sales;
       if (d.buyLog) buyLog = d.buyLog;
+      if (d.dividends) dividends = d.dividends;
       normalizeData(); // handle backups from older versions
-      saveSettings(); saveShifts(); save(EX_KEY, expenses); save(RE_KEY, recurring); save(HO_KEY, holdings); save(CA_KEY, cash); save(GO_KEY, goals); save(FPC_KEY, fpCollected); save(NW_KEY, nwHistory); save(SALES_KEY, sales); save(BUY_KEY, buyLog);
+      saveSettings(); saveShifts(); save(EX_KEY, expenses); save(RE_KEY, recurring); save(HO_KEY, holdings); save(CA_KEY, cash); save(GO_KEY, goals); save(FPC_KEY, fpCollected); save(NW_KEY, nwHistory); save(SALES_KEY, sales); save(BUY_KEY, buyLog); save(DIV_KEY, dividends);
       fillAccSelect(); renderAll(); renderSettings();
       alert('Import complete — ' + shifts.length + ' shifts, ' + holdings.length + ' positions, ' + expenses.length + ' expenses loaded.');
     } catch (err) { alert('Import failed: ' + (err && err.message ? err.message : err)); }
   };
   r.readAsText(f);
 };
+// Merges a parsed Saxo export (positions/sales/dividends, each tagged with a stable sourceId) into
+// the tracker additively. Re-importing a newer/extended export just adds new records — anything
+// whose sourceId already exists gets skipped, so this is safe to run again and again.
+async function mergeSaxoImport(data) {
+  const result = { addedLots: 0, skippedLots: 0, addedSales: 0, skippedSales: 0, addedDividends: 0, skippedDividends: 0 };
+  const existingLotSourceIds = new Set(holdings.flatMap(p => p.lots.map(l => l.sourceId).filter(Boolean)));
+  const existingSaleSourceIds = new Set(sales.map(s => s.sourceId).filter(Boolean));
+  const existingDivSourceIds = new Set(dividends.map(d => d.sourceId).filter(Boolean));
+  for (const item of (data.positions || [])) {
+    if (item.sourceId && existingLotSourceIds.has(item.sourceId)) { result.skippedLots++; continue; }
+    let pos = holdings.find(p => p.symbol === item.symbol && p.account === item.account);
+    const lotId = newId();
+    if (!pos) {
+      pos = { id: newId(), symbol: item.symbol, name: item.name, currency: item.currency, account: item.account, price: 0, chg: 0, sector: null, fx: await fxRate(item.currency), updated: null, lots: [] };
+      holdings.push(pos);
+    }
+    pos.lots.push({ id: lotId, qty: item.qty, buy: item.buy, date: item.date, sourceId: item.sourceId });
+    logBuy(pos.symbol, pos.name, pos.account, pos.currency, item.qty, item.buy, item.date, pos.id, lotId);
+    result.addedLots++;
+  }
+  for (const item of (data.sales || [])) {
+    if (item.sourceId && existingSaleSourceIds.has(item.sourceId)) { result.skippedSales++; continue; }
+    sales.push({ id: newId(), symbol: item.symbol, name: item.name, account: item.account, currency: item.currency, qty: item.qty, buyPrice: item.buyPrice, buyDate: item.buyDate, sellPrice: item.sellPrice, sellDate: item.sellDate, fx: item.fx, sourceId: item.sourceId });
+    result.addedSales++;
+  }
+  for (const item of (data.dividends || [])) {
+    if (item.sourceId && existingDivSourceIds.has(item.sourceId)) { result.skippedDividends++; continue; }
+    dividends.push({ id: newId(), symbol: item.symbol, name: item.name, currency: item.currency, account: item.account, amount: item.amount, date: item.date, fx: item.fx, sourceId: item.sourceId });
+    result.addedDividends++;
+  }
+  save(HO_KEY, holdings); save(BUY_KEY, buyLog); save(SALES_KEY, sales); save(DIV_KEY, dividends);
+  fillAccSelect(); renderAll(); rebuildNwHistory();
+  return result;
+}
+document.getElementById('btnSaxoImport').onclick = () => document.getElementById('saxoImportFile').click();
+document.getElementById('saxoImportFile').onchange = e => {
+  const f = e.target.files[0]; if (!f) return;
+  const statusEl = document.getElementById('saxoImportStatus');
+  statusEl.textContent = 'Importing…';
+  const r = new FileReader();
+  r.onload = async () => {
+    try {
+      const data = JSON.parse(r.result);
+      const res = await mergeSaxoImport(data);
+      statusEl.textContent = `Added ${res.addedLots} positions, ${res.addedSales} sales, ${res.addedDividends} dividends`
+        + ((res.skippedLots || res.skippedSales || res.skippedDividends) ? ` (skipped ${res.skippedLots + res.skippedSales + res.skippedDividends} already imported).` : '.');
+    } catch (err) { statusEl.textContent = 'Import failed: ' + (err && err.message ? err.message : err); }
+  };
+  r.readAsText(f);
+  e.target.value = '';
+};
 
 // ================= INIT =================
 function renderAll() {
-  renderHero(); renderYearStats(); renderPayouts(); renderFrikort(); renderFp(); renderMonthView(); renderChart();
+  renderHero(); renderYearStats(); renderYearlySummary(); renderPayouts(); renderFrikort(); renderFp(); renderMonthView(); renderChart();
   renderBudget(); renderInvest(); renderCash(); renderPie(); renderNW();
 }
 // migrations that used to run at load against localStorage data — now run after fetching from Supabase
