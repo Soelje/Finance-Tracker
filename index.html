@@ -633,6 +633,9 @@ const MD = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','D
 const MDF = ['January','February','March','April','May','June','July','August','September','October','November','December'];
 const dstr = d => d.getDate() + ' ' + MD[d.getMonth()];
 const dstrF = d => d.getDate() + ' ' + MDF[d.getMonth()] + ' ' + d.getFullYear();
+// short date + year — used anywhere a date can be from a past year (purchases, sales, history log),
+// so it's never ambiguous which year "15 Mar" means.
+const dstrY = d => d.getDate() + ' ' + MD[d.getMonth()] + ' ' + d.getFullYear();
 const iso = d => d.toISOString().slice(0, 10);
 function lastWeekday(y, m) {
   let d = new Date(y, m + 1, 0);
@@ -900,7 +903,7 @@ function perfBlockHtml(x, cost, gp) {
   let html = '';
   if (earliest) {
     html += `<div class="lotline" style="border-bottom:1px solid var(--line)">
-      <span class="muted">Since ${dstr(new Date(earliest + 'T12:00:00'))} (avg buy)</span>
+      <span class="muted">Since ${dstrY(new Date(earliest + 'T12:00:00'))} (avg buy)</span>
       <span style="font-weight:650;color:${cost > 0 ? (gp >= 0 ? 'var(--c-skole)' : 'var(--red)') : 'var(--mut)'}">${cost > 0 ? ((gp >= 0 ? '+' : '') + gp.toFixed(1) + '%') : '—'}</span>
     </div>`;
   }
@@ -1756,7 +1759,7 @@ function renderNW() {
   }
   box.innerHTML = '<canvas id="nwChart"></canvas>';
   const mutCol = document.body.classList.contains('dark') ? '#8b8d80' : '#9a998f';
-  const labels = nwHistory.map(x => dstr(new Date(x.wk + 'T12:00:00')));
+  const labels = nwHistory.map(x => dstrY(new Date(x.wk + 'T12:00:00')));
   nwChart = new Chart(document.getElementById('nwChart'), {
     type: 'line',
     data: { labels, datasets: [
@@ -1824,12 +1827,12 @@ function renderInvest() {
         <td class="num" style="color:${x.chg >= 0 ? 'var(--c-skole)' : 'var(--red)'}">${x.chg >= 0 ? '+' : ''}${(x.chg || 0).toFixed(2)}%</td>
         <td class="num"><b>${fmt0(v)}</b></td>
         <td class="num" style="color:${g >= 0 ? 'var(--c-skole)' : 'var(--red)'}">${c > 0 ? `<b>${g >= 0 ? '+' : '−'}${fmt0(Math.abs(g))}</b><br><span style="font-size:11px">${(g >= 0 ? '+' : '') + gp.toFixed(1)}%</span>` : '—'}</td>
-        <td><button class="icon prm" data-id="${x.id}" title="Delete position" style="color:#c0392b">×</button></td>
+        <td style="white-space:nowrap"><button class="icon spl" data-id="${x.id}" title="Adjust for a stock split">🔀</button><button class="icon prm" data-id="${x.id}" title="Delete position" style="color:#c0392b">×</button></td>
       </tr>`;
       if (isOpen) {
         html += `<tr class="lotsrow"><td colspan="9">${perfBlockHtml(x, c, gp)}${x.lots.map(l => `
           <div class="lotline">
-            <span class="muted">${l.date ? dstr(new Date(l.date + 'T12:00:00')) + ' · ' : ''}${l.qty.toLocaleString('da-DK')} @ ${(l.buy || 0).toLocaleString('da-DK', { maximumFractionDigits: 2 })} ${x.currency}</span>
+            <span class="muted">${l.date ? dstrY(new Date(l.date + 'T12:00:00')) + ' · ' : ''}${l.qty.toLocaleString('da-DK')} @ ${(l.buy || 0).toLocaleString('da-DK', { maximumFractionDigits: 2 })} ${x.currency}</span>
             <span style="display:flex;align-items:center;gap:6px">
               <span>${fmt0(l.qty * (l.buy || 0) * (x.fx || 1))} invested</span>
               <button class="icon lsell" data-pos="${x.id}" data-lot="${l.id}" title="Sell">💰</button>
@@ -1853,6 +1856,33 @@ function renderInvest() {
       if (pos && !perfResults[id]) loadPerf(pos);
     }
     renderInvest();
+  });
+  // Stock split: bought pre-split, but the live price feed only ever shows the current (post-split)
+  // price — so without this, an old lot's qty*buy stops matching reality and shows a fake loss.
+  // Multiplies qty and divides buy price by the ratio for every lot (and matching history entry)
+  // dated before the split, leaving anything bought after the split untouched.
+  el.querySelectorAll('.spl').forEach(b => b.onclick = () => {
+    const pos = holdings.find(p => p.id === b.dataset.id);
+    if (!pos) return;
+    const ratioStr = prompt(pos.symbol + ' stock split — how many new shares for every 1 old share?\nExamples: a 10-for-1 split → enter 10. A 1-for-10 reverse split → enter 0.1.', '10');
+    if (ratioStr === null) return;
+    const ratio = parseFloat(ratioStr.replace(',', '.'));
+    if (!ratio || ratio <= 0) { alert('Enter a valid ratio, e.g. 10 or 0.1'); return; }
+    const dateStr = prompt('Effective date of the split (YYYY-MM-DD) — only purchases before this date get adjusted, so anything you bought after the split is left alone.', iso(new Date()));
+    if (dateStr === null) return;
+    const splitDate = dateStr.trim();
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(splitDate)) { alert('Enter the date as YYYY-MM-DD'); return; }
+    let touched = 0;
+    pos.lots.forEach(l => {
+      if (!l.date || l.date < splitDate) { l.qty *= ratio; l.buy = l.buy / ratio; touched++; }
+    });
+    if (!touched) { alert('No purchases of ' + pos.symbol + ' before ' + splitDate + ' were found to adjust.'); return; }
+    buyLog.forEach(x => {
+      if (x.posId === pos.id && x.date && x.date < splitDate) { x.qty *= ratio; x.price = x.price / ratio; }
+    });
+    save(HO_KEY, holdings); save(BUY_KEY, buyLog);
+    renderInvest(); renderPie(); rebuildNwHistory();
+    alert('Adjusted ' + touched + ' purchase' + (touched === 1 ? '' : 's') + ' of ' + pos.symbol + ' for the split.');
   });
   el.querySelectorAll('.prm').forEach(b => b.onclick = () => {
     const pos = holdings.find(p => p.id === b.dataset.id);
@@ -1946,19 +1976,19 @@ function renderHistory() {
   entries.forEach(x => {
     if (x.kind === 'buy') {
       html += `<tr>
-        <td class="muted">${x.date ? dstr(new Date(x.date + 'T12:00:00')) : '—'}</td>
+        <td class="muted">${x.date ? dstrY(new Date(x.date + 'T12:00:00')) : '—'}</td>
         <td><span class="muted" style="font-size:11px">Bought</span></td>
         <td><b>${x.symbol}</b><br><span class="muted" style="font-size:11px">${x.account}</span></td>
         <td class="num">${x.qty.toLocaleString('da-DK')}</td>
         <td class="num">${(x.price || 0).toLocaleString('da-DK', { maximumFractionDigits: 2 })} ${x.currency}</td>
         <td class="num">—</td>
-        <td></td>
+        <td><button class="icon hrm" data-id="${x.id}" data-pos="${x.posId || ''}" data-lot="${x.lotId || ''}" title="Delete" style="color:#c0392b">×</button></td>
       </tr>`;
     } else {
       const g = saleRealized(x);
       const gp = x.buyPrice > 0 ? ((x.sellPrice - x.buyPrice) / x.buyPrice * 100) : 0;
       html += `<tr>
-        <td class="muted">${x.sellDate ? dstr(new Date(x.sellDate + 'T12:00:00')) : '—'}</td>
+        <td class="muted">${x.sellDate ? dstrY(new Date(x.sellDate + 'T12:00:00')) : '—'}</td>
         <td><span class="muted" style="font-size:11px">Sold</span></td>
         <td><b>${x.symbol}</b><br><span class="muted" style="font-size:11px">${x.account}</span></td>
         <td class="num">${x.qty.toLocaleString('da-DK')}</td>
@@ -1970,10 +2000,48 @@ function renderHistory() {
   });
   html += '</table>';
   el.innerHTML = html;
+  // Sell rows: delete just removes the sale record (shares were already sold, nothing to restore
+  // to a lot) — same confirm-then-undo-toast pattern as everywhere else.
   el.querySelectorAll('.srm').forEach(b => b.onclick = () => {
-    if (!confirm('Delete this sale record? This only removes the record — it does not restore the shares.')) return;
+    const sale = sales.find(s => s.id === b.dataset.id);
+    if (!sale || !confirm('Delete this sale record? This only removes the record — it does not restore the shares.')) return;
     sales = sales.filter(s => s.id !== b.dataset.id);
     save(SALES_KEY, sales); renderHistory();
+    showUndoToast('Deleted sale record for ' + sale.symbol + '.', () => {
+      sales.push(sale);
+      save(SALES_KEY, sales); renderHistory();
+    });
+  });
+  // Buy rows: delete removes the underlying lot/position too (same as the x button in Portfolio),
+  // since a "buy" in history IS that lot. If the lot's already gone (fully sold elsewhere, or the
+  // position was deleted separately) this just clears the stray leftover record instead.
+  el.querySelectorAll('.hrm').forEach(b => b.onclick = () => {
+    const entry = buyLog.find(x => x.id === b.dataset.id);
+    if (!entry) return;
+    const pos = holdings.find(p => p.id === b.dataset.pos);
+    const lot = pos && pos.lots.find(l => l.id === b.dataset.lot);
+    if (!pos || !lot) {
+      buyLog = buyLog.filter(x => x.id !== entry.id);
+      save(BUY_KEY, buyLog); renderHistory();
+      showUndoToast('Removed history entry for ' + entry.symbol + '.', () => {
+        buyLog.push(entry); save(BUY_KEY, buyLog); renderHistory();
+      });
+      return;
+    }
+    if (!confirm('Delete this purchase of ' + pos.symbol + '? This also removes it from your current holdings.')) return;
+    const removedBuyEntries = buyLog.filter(x => x.lotId === lot.id);
+    pos.lots = pos.lots.filter(l => l.id !== lot.id);
+    const posGone = !pos.lots.length;
+    if (posGone) holdings = holdings.filter(p => p.id !== pos.id);
+    buyLog = buyLog.filter(x => x.lotId !== lot.id);
+    save(HO_KEY, holdings); save(BUY_KEY, buyLog); renderInvest(); renderPie();
+    showUndoToast('Deleted a purchase of ' + pos.symbol + '.', () => {
+      pos.lots.push(lot);
+      if (posGone) holdings.push(pos);
+      buyLog.push(...removedBuyEntries);
+      save(HO_KEY, holdings); save(BUY_KEY, buyLog);
+      renderInvest(); renderPie(); rebuildNwHistory();
+    });
   });
 }
 // Sells `qty` shares from a position's oldest lots first (FIFO). Used by Sell mode in Add Position,
