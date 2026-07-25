@@ -1944,7 +1944,7 @@ function renderInvest() {
         <td class="num" style="color:${x.chg >= 0 ? 'var(--c-skole)' : 'var(--red)'}">${x.chg >= 0 ? '+' : ''}${(x.chg || 0).toFixed(2)}%</td>
         <td class="num"><b>${fmt0(v)}</b></td>
         <td class="num" style="color:${g >= 0 ? 'var(--c-skole)' : 'var(--red)'}">${c > 0 ? `<b>${g >= 0 ? '+' : '−'}${fmt0(Math.abs(g))}</b><br><span style="font-size:11px">${(g >= 0 ? '+' : '') + gp.toFixed(1)}%</span>` : '—'}</td>
-        <td style="white-space:nowrap"><button class="icon spl" data-id="${x.id}" title="Adjust for a stock split">🔀</button><button class="icon prm" data-id="${x.id}" title="Delete position" style="color:#c0392b">×</button></td>
+        <td style="white-space:nowrap"><button class="icon setp" data-id="${x.id}" title="Set price manually — for symbols with no live feed">💲</button><button class="icon spl" data-id="${x.id}" title="Adjust for a stock split">🔀</button><button class="icon prm" data-id="${x.id}" title="Delete position" style="color:#c0392b">×</button></td>
       </tr>`;
       if (isOpen) {
         html += `<tr class="lotsrow"><td colspan="9">${perfBlockHtml(x, c, gp)}${x.lots.map(l => `
@@ -1973,6 +1973,22 @@ function renderInvest() {
       if (pos && !perfResults[id]) loadPerf(pos);
     }
     renderInvest();
+  });
+  // Manual price override — for symbols with no live feed (a mutual fund, or an ETF Google Finance
+  // and the API providers just don't cover). Sets price/chg directly rather than fetching, marked
+  // with a fresh 'updated' timestamp so it doesn't look stale.
+  el.querySelectorAll('.setp').forEach(b => b.onclick = () => {
+    const pos = holdings.find(p => p.id === b.dataset.id);
+    if (!pos) return;
+    const priceStr = prompt(pos.symbol + ' — enter the current price (in ' + pos.currency + '):', pos.price || '');
+    if (priceStr === null) return;
+    const price = parseFloat(priceStr.replace(',', '.'));
+    if (!price || price <= 0) { alert('Enter a valid price.'); return; }
+    pos.price = price;
+    pos.chg = 0;
+    pos.updated = Date.now();
+    save(HO_KEY, holdings);
+    renderInvest(); renderPie();
   });
   // Stock split: bought pre-split, but the live price feed only ever shows the current (post-split)
   // price — so without this, an old lot's qty*buy stops matching reality and shows a fake loss.
@@ -2075,13 +2091,42 @@ function saleRealized(s) { return (s.sellPrice - s.buyPrice) * s.qty * (s.fx || 
 // One combined, chronological log of everything ever bought (buyLog — persists even after a
 // position is fully sold and its lot is gone) and everything ever sold (sales — has realized P&L).
 // Newest first. Refreshed automatically by renderInvest() so it's always in sync.
+// One sell order can close several lots bought at different prices/dates (broker statements report
+// that as one row per lot, since realized P&L is tracked per cost basis) — but from the user's side
+// it was still one action. Group sale records that share the same symbol/account/sellDate/sellPrice
+// into a single combined row, summing qty and realized P&L, so the History log matches what actually
+// happened instead of looking like several separate sells.
+function groupedSales() {
+  const groups = new Map();
+  sales.forEach(s => {
+    const key = [s.symbol, s.account, s.sellDate, s.sellPrice].join('|');
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key).push(s);
+  });
+  return [...groups.values()].map(list => {
+    const qty = list.reduce((a, s) => a + s.qty, 0);
+    const realized = list.reduce((a, s) => a + saleRealized(s), 0);
+    const costBasis = list.reduce((a, s) => a + s.buyPrice * s.qty * (s.fx || 1), 0);
+    const first = list[0];
+    return {
+      kind: 'sell', ids: list.map(s => s.id), symbol: first.symbol, account: first.account, currency: first.currency,
+      qty, sellPrice: first.sellPrice, sellDate: first.sellDate, realized, costBasis, lotCount: list.length
+    };
+  });
+}
+// History log and Dividends are collapsed by default, showing just the most recent few rows —
+// nobody needs their whole trading history sitting open all the time. A "Show all" link expands it.
+const FOLD_ROWS = 5;
+let historyShowAll = false;
+let dividendsShowAll = false;
 function renderHistory() {
   const card = document.getElementById('historyCard');
   const el = document.getElementById('historyList');
   if (!card || !el) return;
+  const sellGroups = groupedSales();
   const entries = [
     ...buyLog.map(b => ({ ...b, kind: 'buy', sortDate: b.date || '' })),
-    ...sales.map(s => ({ ...s, kind: 'sell', sortDate: s.sellDate || '' }))
+    ...sellGroups.map(s => ({ ...s, sortDate: s.sellDate || '' }))
   ].sort((a, b) => b.sortDate.localeCompare(a.sortDate));
   if (!entries.length) { card.classList.add('hidden'); return; }
   card.classList.remove('hidden');
@@ -2089,8 +2134,9 @@ function renderHistory() {
   let html = sales.length
     ? `<div class="prow total" style="margin-bottom:8px"><span class="k">Total realized</span><span class="tilkonto" style="color:${totalRealized >= 0 ? '' : 'var(--red)'}">${totalRealized >= 0 ? '+' : '−'}${fmt0(Math.abs(totalRealized))}</span></div>`
     : '';
+  const shown = historyShowAll ? entries : entries.slice(0, FOLD_ROWS);
   html += `<table class="shiftlist"><tr><th>Date</th><th></th><th>Position</th><th class="num">Qty</th><th class="num">Price</th><th class="num">P/L</th><th></th></tr>`;
-  entries.forEach(x => {
+  shown.forEach(x => {
     if (x.kind === 'buy') {
       html += `<tr>
         <td class="muted">${x.date ? dstrY(new Date(x.date + 'T12:00:00')) : '—'}</td>
@@ -2102,8 +2148,8 @@ function renderHistory() {
         <td><button class="icon hrm" data-id="${x.id}" data-pos="${x.posId || ''}" data-lot="${x.lotId || ''}" title="Delete" style="color:#c0392b">×</button></td>
       </tr>`;
     } else {
-      const g = saleRealized(x);
-      const gp = x.buyPrice > 0 ? ((x.sellPrice - x.buyPrice) / x.buyPrice * 100) : 0;
+      const g = x.realized;
+      const gp = x.costBasis > 0 ? (g / x.costBasis * 100) : 0;
       html += `<tr>
         <td class="muted">${x.sellDate ? dstrY(new Date(x.sellDate + 'T12:00:00')) : '—'}</td>
         <td><span class="muted" style="font-size:11px">Sold</span></td>
@@ -2111,21 +2157,28 @@ function renderHistory() {
         <td class="num">${x.qty.toLocaleString('da-DK')}</td>
         <td class="num">${x.sellPrice.toLocaleString('da-DK', { maximumFractionDigits: 2 })} ${x.currency}</td>
         <td class="num" style="color:${g >= 0 ? 'var(--c-skole)' : 'var(--red)'}"><b>${g >= 0 ? '+' : '−'}${fmt0(Math.abs(g))}</b><br><span style="font-size:11px">${(gp >= 0 ? '+' : '') + gp.toFixed(1)}%</span></td>
-        <td><button class="icon srm" data-id="${x.id}" title="Delete record" style="color:#c0392b">×</button></td>
+        <td><button class="icon srm" data-ids="${x.ids.join(',')}" title="Delete record" style="color:#c0392b">×</button></td>
       </tr>`;
     }
   });
   html += '</table>';
+  if (entries.length > FOLD_ROWS) {
+    html += `<button type="button" class="linkbtn" id="btnHistoryToggle" style="padding-left:0;margin-top:6px">${historyShowAll ? 'Show less' : 'Show all ' + entries.length}</button>`;
+  }
   el.innerHTML = html;
-  // Sell rows: delete just removes the sale record (shares were already sold, nothing to restore
-  // to a lot) — same confirm-then-undo-toast pattern as everywhere else.
+  const toggleBtn = document.getElementById('btnHistoryToggle');
+  if (toggleBtn) toggleBtn.onclick = () => { historyShowAll = !historyShowAll; renderHistory(); };
+  // Sell rows: delete just removes the sale record(s) — shares were already sold, nothing to restore
+  // to a lot. A grouped row (one sell order that closed several lots) removes/restores all of them
+  // together, so it behaves as the single action it actually was.
   el.querySelectorAll('.srm').forEach(b => b.onclick = () => {
-    const sale = sales.find(s => s.id === b.dataset.id);
-    if (!sale || !confirm('Delete this sale record? This only removes the record — it does not restore the shares.')) return;
-    sales = sales.filter(s => s.id !== b.dataset.id);
+    const ids = b.dataset.ids.split(',');
+    const removed = sales.filter(s => ids.includes(s.id));
+    if (!removed.length || !confirm('Delete this sale record? This only removes the record — it does not restore the shares.')) return;
+    sales = sales.filter(s => !ids.includes(s.id));
     save(SALES_KEY, sales); renderHistory();
-    showUndoToast('Deleted sale record for ' + sale.symbol + '.', () => {
-      sales.push(sale);
+    showUndoToast('Deleted sale record for ' + removed[0].symbol + '.', () => {
+      sales.push(...removed);
       save(SALES_KEY, sales); renderHistory();
     });
   });
@@ -2177,8 +2230,9 @@ function renderDividends() {
   sumEl.innerHTML = `<div class="prow total"><span class="k">Total received</span><span class="tilkonto">${fmt0(total)}</span></div>
     <div class="prow"><span class="k">${thisYear} so far</span><span class="tilkonto">${fmt0(totalYear)}</span></div>`;
   const sorted = [...dividends].sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+  const shown = dividendsShowAll ? sorted : sorted.slice(0, FOLD_ROWS);
   let html = `<table class="shiftlist"><tr><th>Date</th><th>Position</th><th class="num">Amount</th><th></th></tr>`;
-  sorted.forEach(d => {
+  shown.forEach(d => {
     html += `<tr>
       <td class="muted">${d.date ? dstrY(new Date(d.date + 'T12:00:00')) : '—'}</td>
       <td><b>${d.symbol}</b><br><span class="muted" style="font-size:11px">${d.account || ''}</span></td>
@@ -2187,7 +2241,12 @@ function renderDividends() {
     </tr>`;
   });
   html += '</table>';
+  if (sorted.length > FOLD_ROWS) {
+    html += `<button type="button" class="linkbtn" id="btnDivToggle" style="padding-left:0;margin-top:6px">${dividendsShowAll ? 'Show less' : 'Show all ' + sorted.length}</button>`;
+  }
   el.innerHTML = html;
+  const divToggleBtn = document.getElementById('btnDivToggle');
+  if (divToggleBtn) divToggleBtn.onclick = () => { dividendsShowAll = !dividendsShowAll; renderDividends(); };
   el.querySelectorAll('.drm').forEach(b => b.onclick = () => {
     const div = dividends.find(x => x.id === b.dataset.id);
     if (!div) return;
@@ -2375,8 +2434,13 @@ function renderSettings() {
     `</div>` +
 
     `<div style="${divider}">` + sectionHead('Investment accounts') + `</div>` +
-    `<div style="grid-column:1/-1;display:flex;flex-direction:column;gap:8px;margin-top:2px">` +
+    `<div class="muted" style="grid-column:1/-1;margin-top:2px">Use the arrows to change the order accounts appear in on the Investment tab.</div>` +
+    `<div style="grid-column:1/-1;display:flex;flex-direction:column;gap:8px;margin-top:6px">` +
     settings.accNames.map((n, i) => `<div style="display:flex;gap:8px;align-items:center">
+        <span style="display:flex;flex-direction:column">
+          <button type="button" class="pillbtn" data-acc-up="${i}" style="font-size:10px;padding:1px 7px;line-height:1.4" ${i === 0 ? 'disabled' : ''}>▲</button>
+          <button type="button" class="pillbtn" data-acc-down="${i}" style="font-size:10px;padding:1px 7px;line-height:1.4" ${i === settings.accNames.length - 1 ? 'disabled' : ''}>▼</button>
+        </span>
         <input type="text" id="set_acc_${i}" value="${n}" style="flex:1">
         <button type="button" class="pillbtn" data-remove-acc="${i}" style="font-size:12px;padding:6px 12px" ${settings.accNames.length <= 1 ? 'disabled title="At least one account is required"' : ''}>Remove</button>
       </div>`).join('') +
@@ -2443,10 +2507,32 @@ function renderSettings() {
         e.target.value = oldName;
         return;
       }
+      // Renaming an account relabels it everywhere it's referenced — current holdings, and every
+      // past buy/sell/dividend record — so History log and Dividends don't end up pointing at a
+      // name that no longer exists.
       holdings.forEach(p => { if (p.account === oldName) p.account = newName; });
+      buyLog.forEach(b => { if (b.account === oldName) b.account = newName; });
+      sales.forEach(s => { if (s.account === oldName) s.account = newName; });
+      dividends.forEach(d => { if (d.account === oldName) d.account = newName; });
       settings.accNames[i] = newName;
-      saveSettings(); save(HO_KEY, holdings);
+      saveSettings(); save(HO_KEY, holdings); save(BUY_KEY, buyLog); save(SALES_KEY, sales); save(DIV_KEY, dividends);
       fillAccSelect(); renderAll();
+    };
+  });
+  document.querySelectorAll('[data-acc-up]').forEach(btn => {
+    btn.onclick = () => {
+      const i = parseInt(btn.getAttribute('data-acc-up'), 10);
+      if (i <= 0) return;
+      [settings.accNames[i - 1], settings.accNames[i]] = [settings.accNames[i], settings.accNames[i - 1]];
+      saveSettings(); renderAll(); renderSettings();
+    };
+  });
+  document.querySelectorAll('[data-acc-down]').forEach(btn => {
+    btn.onclick = () => {
+      const i = parseInt(btn.getAttribute('data-acc-down'), 10);
+      if (i >= settings.accNames.length - 1) return;
+      [settings.accNames[i + 1], settings.accNames[i]] = [settings.accNames[i], settings.accNames[i + 1]];
+      saveSettings(); renderAll(); renderSettings();
     };
   });
   document.querySelectorAll('[data-remove-acc]').forEach(btn => {
